@@ -134,20 +134,40 @@ uart:
 
 **❌ WRONG**: Adding a `dir_pin` will crash the token-passing timing!
 
-### NibeGW Component Limitation
+### NibeGW Component Architecture (IMPORTANT!)
 
-**Key Discovery**: The `nibegw` component from `elupus/esphome-nibe` is a **UDP gateway only**. It does NOT provide direct sensor/number/select platforms for reading/writing Nibe registers.
+**Critical Understanding**: The `nibegw` component from `elupus/esphome-nibe` is a **UDP gateway ONLY**. It does NOT provide ESPHome sensor platforms for reading Nibe registers.
 
-**Solution**: 
-- Use `nibegw` for UDP broadcasting to Home Assistant
-- Use Home Assistant's Nibe integration to parse registers
-- Use `homeassistant` platform sensors in ESPHome to pull values back
-- Use `homeassistant.service` calls to write values
+**How It Actually Works**:
+```
+ESP32 (nibegw) → UDP broadcast → Home Assistant (Nibe integration) → Sensors
+```
 
-This architecture allows:
-1. **Standalone operation**: Spot price logic runs on ESP32
-2. **Home Assistant integration**: Full register access via HA
-3. **Dual functionality**: Both gateway and smart controller
+**What nibegw Does**:
+- ✅ Receives raw Nibe telegrams via RS485
+- ✅ Forwards them via UDP to Home Assistant
+- ✅ Can send read/write requests via UDP
+- ❌ Does NOT parse registers into ESPHome sensors
+- ❌ Does NOT provide `platform: nibe` for sensors
+
+**Correct Architecture (v1.2)**:
+- ESP32 acts as UDP gateway + spot price controller
+- Home Assistant parses Nibe data into sensors
+- ESP32 smart control uses ONLY spot prices (no temp feedback)
+- Home Assistant can send commands to ESP32 (via `homeassistant.service`)
+- For advanced control, use Home Assistant automations
+
+**Why Sensors Are Commented Out (v1.2)**:
+The 6 Nibe sensors using `platform: homeassistant` were creating a circular dependency:
+1. ESP32 sends raw data → Home Assistant
+2. Home Assistant creates sensors
+3. ESP32 tries to pull sensors back ← This doesn't work reliably
+
+**Future Plans (Standalone Competition)**:
+Sensors are preserved (commented out) for when we implement:
+1. Custom Nibe register parsing component (direct ESP32 parsing)
+2. Visual pump representation for Standalone Visualization
+3. Real-time temperature display on local web interface
 
 ### Time Synchronization Strategy
 
@@ -279,7 +299,8 @@ wifi:
 - **Region**: SE3 (Stockholm)
 - **Format**: JSON with 24-hour prices
 - **Update Frequency**: Every 60 minutes
-- **Buffer Size**: 8192 bytes
+- **Buffer Size**: 16384 bytes (16KB)
+- **Actual Response Size**: ~13.6KB (13,601 bytes)
 
 ### Smart Control Thresholds
 ```yaml
@@ -537,5 +558,5 @@ This firmware is provided "as is" without warranty. Use at your own risk. Always
 ---
 
 **Last Updated**: 2026-03-15  
-**Version**: 1.0  
+**Version**: 1.2  
 **Tested With**: ESPHome 2026.2.2, LilyGo T-CAN485 v1.1, Nibe F1245

@@ -98,48 +98,63 @@ nibegw:
         port: 9999
 
 # =========================================================
-# NIBE SENSORS (Template sensors - values from Home Assistant or UDP parsing)
-# Note: nibegw acts as UDP gateway. Actual register values are parsed by Home Assistant.
-# These template sensors can be updated via Home Assistant API or lambda functions.
+# NIBE SENSORS - COMMENTED OUT FOR v1.2
+# =========================================================
+# IMPORTANT: These sensors are DISABLED because nibegw is UDP-only and does NOT
+# provide an ESPHome sensor platform. The nibegw component only forwards raw
+# Nibe telegrams via UDP to Home Assistant, where the Nibe integration parses them.
+#
+# FUTURE PLANS (Standalone Competition & Visualization):
+# These sensors will be re-enabled when we implement:
+# 1. Custom Nibe register parsing component (direct ESP32 parsing)
+# 2. Visual representation of pump data for Standalone Visualization
+# 3. Real-time temperature/status display on local web interface
+#
+# For now, Nibe sensor data is available in Home Assistant via the Nibe integration.
+# The ESP32 smart control uses ONLY spot prices (no temperature feedback).
+# =========================================================
+# sensor:
+#   # Nibe Heat Pump Sensors (for future visualization - currently disabled)
+#   - platform: homeassistant
+#     id: supply_temperature
+#     entity_id: sensor.nibe_supply_temperature
+#     name: "Supply Temperature"
+#     internal: false
+#
+#   - platform: homeassistant
+#     id: return_temperature
+#     entity_id: sensor.nibe_return_temperature
+#     name: "Return Temperature"
+#     internal: false
+#
+#   - platform: homeassistant
+#     id: outdoor_temperature
+#     entity_id: sensor.nibe_outdoor_temperature
+#     name: "Outdoor Temperature"
+#     internal: false
+#
+#   - platform: homeassistant
+#     id: hot_water_top
+#     entity_id: sensor.nibe_hot_water_top
+#     name: "Hot Water Top"
+#     internal: false
+#
+#   - platform: homeassistant
+#     id: degree_minutes
+#     entity_id: sensor.nibe_degree_minutes
+#     name: "Degree Minutes"
+#     internal: false
+#
+#   - platform: homeassistant
+#     id: compressor_frequency
+#     entity_id: sensor.nibe_compressor_frequency
+#     name: "Compressor Frequency"
+#     internal: false
+
+# =========================================================
+# SPOT PRICE SENSORS (Active)
 # =========================================================
 sensor:
-  # Nibe Heat Pump Sensors (populated from Home Assistant)
-  - platform: homeassistant
-    id: supply_temperature
-    entity_id: sensor.nibe_supply_temperature
-    name: "Supply Temperature"
-    internal: false
-
-  - platform: homeassistant
-    id: return_temperature
-    entity_id: sensor.nibe_return_temperature
-    name: "Return Temperature"
-    internal: false
-
-  - platform: homeassistant
-    id: outdoor_temperature
-    entity_id: sensor.nibe_outdoor_temperature
-    name: "Outdoor Temperature"
-    internal: false
-
-  - platform: homeassistant
-    id: hot_water_top
-    entity_id: sensor.nibe_hot_water_top
-    name: "Hot Water Top"
-    internal: false
-
-  - platform: homeassistant
-    id: degree_minutes
-    entity_id: sensor.nibe_degree_minutes
-    name: "Degree Minutes"
-    internal: false
-
-  - platform: homeassistant
-    id: compressor_frequency
-    entity_id: sensor.nibe_compressor_frequency
-    name: "Compressor Frequency"
-    internal: false
-
   # Spot Price Sensor (updated via HTTP request)
   - platform: template
     name: "Current Spot Price"
@@ -253,7 +268,7 @@ script:
             ESP_LOGI("spot_price", "Fetching from URL: %s", url);
             return std::string(url);
           capture_response: true
-          max_response_buffer_size: 8192
+          max_response_buffer_size: 16384
           on_response:
             then:
               - lambda: |-
@@ -268,7 +283,7 @@ script:
                   // body parameter is already available from on_response
                   ESP_LOGI("spot_price", "Response body length: %d bytes", body.length());
                   
-                  if (body.length() >= 4000) {
+                  if (body.length() >= 16000) {
                     ESP_LOGW("spot_price", "WARNING: Response may be truncated! Increase buffer size.");
                   }
                   
@@ -276,6 +291,9 @@ script:
                   auto time = id(sntp_time).now();
                   int current_hour = time.hour;
                   ESP_LOGI("spot_price", "Current hour: %d", current_hour);
+                  
+                  // Debug: Show first 200 chars of JSON
+                  ESP_LOGD("spot_price", "JSON start: %.200s", body.c_str());
                   
                   // Simple JSON parsing for current hour price
                   // Format: [{"time_start":"2026-03-15T00:00:00+01:00","SEK_per_kWh":0.85,"EUR_per_kWh":0.08}, ...]
@@ -285,9 +303,13 @@ script:
                   snprintf(search_pattern, sizeof(search_pattern), "\"time_start\":\"%04d-%02d-%02dT%02d:",
                            time.year, time.month, time.day_of_month, current_hour);
                   
+                  ESP_LOGD("spot_price", "Searching for pattern: %s", search_pattern);
+                  
                   int start_pos = body.find(search_pattern);
                   if (start_pos == std::string::npos) {
-                    ESP_LOGW("spot_price", "Could not find price for hour %d", current_hour);
+                    ESP_LOGW("spot_price", "Could not find price for hour %d with pattern: %s", current_hour, search_pattern);
+                    // Debug: Show last 200 chars to see if data is truncated
+                    ESP_LOGD("spot_price", "JSON end: ...%s", body.substr(body.length() - 200).c_str());
                     id(price_status).publish_state("Price not found");
                     return;
                   }

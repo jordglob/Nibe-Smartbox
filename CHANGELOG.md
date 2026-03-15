@@ -5,6 +5,89 @@ All notable changes to the Nibe Smartbox project will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-03-15
+
+### 🔧 Architecture Fix - Corrected Sensor Configuration
+
+**BREAKING CHANGE**: Removed non-functional `homeassistant` platform sensors
+
+### 🐛 Bug Fixes
+
+- **Removed incorrect sensor architecture**: Commented out 6 `homeassistant` platform sensors
+  - These sensors were attempting to pull Nibe data from Home Assistant
+  - This created a circular dependency (ESP32 → HA → ESP32)
+  - `nibegw` component is UDP-only and does NOT provide sensor platforms
+  - Nibe data parsing happens in Home Assistant, not on ESP32
+
+### ✨ What Changed
+
+**Sensors Commented Out (Preserved for Future):**
+- Supply Temperature
+- Return Temperature  
+- Outdoor Temperature
+- Hot Water Top
+- Degree Minutes
+- Compressor Frequency
+
+**What Still Works:**
+- ✅ NibeGW UDP gateway (broadcasts to Home Assistant)
+- ✅ Spot price fetching and smart control
+- ✅ Manual control via `number` and `select` components
+- ✅ Web Server v3 interface
+- ✅ Home Assistant can send commands to ESP32
+
+### 📊 Correct Architecture
+
+```
+ESP32 Smartbox:
+  - Fetches spot prices (autonomous)
+  - Sends raw Nibe data via UDP → Home Assistant
+  - Receives control commands from Home Assistant
+  - Smart control based on PRICE ONLY (no temp feedback)
+
+Home Assistant:
+  - Receives UDP data from ESP32
+  - Parses Nibe registers into sensors
+  - Can send commands to ESP32 (heat curve, hot water mode)
+  - Can create advanced automations using both Nibe sensors + spot prices
+```
+
+### 🔮 Future Plans - Standalone Competition
+
+Sensors are **commented out** (not deleted) for future re-activation when we implement:
+1. Custom Nibe register parsing component (direct ESP32 parsing)
+2. Visual representation of pump data for Standalone Visualization
+3. Real-time temperature/status display on local web interface
+
+### 📈 Performance
+
+- **RAM usage**: 11.7% (38,384 bytes) - Slightly reduced
+- **Flash usage**: 56.3% (1,033,319 bytes)
+- **Compilation time**: ~367 seconds (full rebuild)
+
+---
+
+## [1.0.1] - 2026-03-15
+
+### 🐛 Bug Fixes
+
+- **Buffer Size Increased**: Increased HTTP buffer from 8192 to 16384 bytes
+  - Fixed "Could not find price for hour X" errors
+  - API response is ~13.6KB, previous 8KB buffer was truncating data
+  - Added debug logging to show JSON start/end and search patterns
+- **Enhanced Logging**: Added detailed debug output for spot price fetching
+  - Shows first 200 chars of JSON response
+  - Shows search pattern being used
+  - Shows last 200 chars if price not found
+
+### ✅ Verified Working
+
+- Spot price detection: **WORKING** (76.79 öre/kWh at hour 17)
+- Buffer utilization: 13,601 bytes / 16,384 bytes (83%)
+- Smart control: Active and responding to price changes
+
+---
+
 ## [1.0.0] - 2026-03-15
 
 ### 🎉 Initial Release

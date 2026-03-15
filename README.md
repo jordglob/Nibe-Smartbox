@@ -1,4 +1,4 @@
-# Nibe Smartbox v1.0
+# Nibe Smartbox v1.2
 
 **Commercial-grade smart controller firmware for Nibe heat pumps with autonomous electricity spot price optimization**
 
@@ -161,9 +161,13 @@ See [BUILD_GUIDE.md](BUILD_GUIDE.md#troubleshooting) for detailed troubleshootin
 
 ## 🛣️ Roadmap
 
+- [ ] **Standalone Competition Integration** 🎨
+  - Custom Nibe register parsing component
+  - Visual pump representation (temperatures, status, flow)
+  - Real-time display on local web interface
+  - Direct ESP32 sensor access (no HA dependency)
 - [ ] Multi-region support (SE1-SE4, NO, DK, FI)
 - [ ] Alternative spot price APIs
-- [ ] Standalone operation (no Home Assistant required)
 - [ ] Weather forecast integration
 - [ ] Historical data logging
 - [ ] Mobile app
@@ -226,6 +230,6 @@ This firmware is provided "as is" without warranty. Use at your own risk. Always
 
 **Made with ❤️ for the Nibe heat pump community**
 
-**Version**: 1.0  
+**Version**: 1.2  
 **Last Updated**: 2026-03-15  
 **Tested With**: ESPHome 2026.2.2, LilyGo T-CAN485 v1.1, Nibe F1245
