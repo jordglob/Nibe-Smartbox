@@ -1,4 +1,14 @@
 # Nibe Smartbox v1.2
+Planering för V1.3
+här är vi kvar på .yaml nivå, ingen ändring av NibeGW orginalkod
+1. Kan NibeGW HELA projekt inklusive cloes and open issues laddas ner lokalt på hårddisken, verkar som vissa AI inte kan nå hemsidan...
+2. Kan en EXTREMT enkel Indikator LED läggas till i yaml koden.
+3. Hur får jag tillgång till best practice för parsing nibes modbus protokoll. 
+4. behöver jag ange Nibe-modell eller är modbus- protokollet fungerande generellt?
+5. hur vet jag vad som styr just nu, säg att HA är inkopplat och programerad för styrning. samtidigt får liligo in elpriset via nätet (eller via ett anrop till server.relvolt-energy.org som jag har planer på att lägga en mini AI för styrning baserat på väderprognos effkekttariff feeback från tibber API mm mm) kanske en spak som jag själv väljer.
+6. nu finns det hårdkodade parametrar i koden, kan man ha en "kongiurator" man går igenom där man bland annat väljer vilket SE-område eller land. frågan är generell lista alla parametrar med rekomendation
+7. Kan websidan få en nörd-flik-knapp? där tänker jag att senast tilldelad ipnummer, Mackadress builddatum version mm mm presenteras 
+sists. föreslå om man ska dela upp detta olika byggen?hur komplex kan man göra deta innan det blir ostablit? när HA är anslutet 
 
 **Commercial-grade smart controller firmware for Nibe heat pumps with autonomous electricity spot price optimization**
 

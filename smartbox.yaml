@@ -1,26 +1,53 @@
 # =========================================================
-# Nibe Smartbox - Commercial-Grade Smart Controller
+# Revolt Smartbox V1.3 — Commercial-Grade Smart Controller
 # LilyGo T-CAN485 v1.1 + Nibe F1245 Heat Pump
+# =========================================================
+# Architecture: nibegw UDP gateway + Local Web UI + Spot Price
+# Framework: Arduino (proven stable with nibegw)
+# Hardware: ESP32 / GPIO16,17,19 inverted / GPIO4 RGB LED
 # =========================================================
 
 esphome:
   name: nibe-smartbox
-  friendly_name: "Nibe Smartbox"
+  friendly_name: "Revolt Smartbox"
+  comment: "V1.3 — Spot Price Optimizer for Nibe F1245"
   build_path: "C:/tmp/esphome/nibe-smartbox"
   on_boot:
     priority: -100
     then:
+      - output.turn_on: ENABLE_PIN
+      - output.turn_on: SE_PIN
+      - output.turn_on: ENABLE_5V_PIN
+      - light.turn_on:
+          id: status_led
+          brightness: 40%
+          red: 0%
+          green: 0%
+          blue: 100%
       - wait_until:
           wifi.connected:
-      - delay: 30s  # Increased delay to ensure time sync completes
+      - light.turn_on:
+          id: status_led
+          brightness: 40%
+          red: 0%
+          green: 100%
+          blue: 0%
+      - delay: 30s
       - wait_until:
           time.has_time:
-      - script.execute: fetch_spot_price
+      - logger.log: "Boot complete. Waiting 5 min before first spot price fetch to let nibegw stabilize..."
+      - delay: 300s
+      - lambda: |-
+          // Only fetch spot prices if mode is "LilyGo Local (Spot Price)"
+          std::string mode = id(control_mode).current_option();
+          if (mode == "LilyGo Local (Spot Price)") {
+            id(fetch_spot_price).execute();
+          }
 
 esp32:
   board: esp32dev
   framework:
-    type: arduino  # CRITICAL: Using Arduino framework as specified
+    type: arduino
 
 logger:
   level: DEBUG
@@ -36,8 +63,22 @@ wifi:
   power_save_mode: none
   ssid: "YOUR_WIFI_SSID"
   password: "YOUR_PASSWORD"
+  on_connect:
+    - light.turn_on:
+        id: status_led
+        brightness: 40%
+        red: 0%
+        green: 100%
+        blue: 0%
+  on_disconnect:
+    - light.turn_on:
+        id: status_led
+        brightness: 40%
+        red: 100%
+        green: 0%
+        blue: 0%
   ap:
-    ssid: "Nibe Smartbox Setup"
+    ssid: "Revolt Smartbox Setup"
     password: "YOUR_PASSWORD"
 
 captive_portal:
@@ -59,7 +100,7 @@ time:
       - 2.pool.ntp.org
 
 # =========================================================
-# NIBE GATEWAY (UDP Gateway for Home Assistant)
+# EXTERNAL COMPONENTS — elupus/esphome-nibe
 # =========================================================
 external_components:
   - source:
@@ -67,26 +108,38 @@ external_components:
       url: https://github.com/elupus/esphome-nibe
       ref: master
 
-# CRITICAL HARDWARE SETUP - LilyGo T-CAN485 v1.1
-# Hardware auto-direction RS485 - NO dir_pin!
+# =========================================================
+# CRITICAL HARDWARE SETUP — LilyGo T-CAN485 v1.1
+# GPIO16, GPIO17, GPIO19 = inverted outputs (chip enable)
+# Hardware auto-direction RS485 — NO dir_pin!
+# =========================================================
 output:
   - platform: gpio
     id: ENABLE_PIN
-    pin: { number: GPIO19, inverted: true }
+    pin:
+      number: GPIO19
+      inverted: true
   - platform: gpio
     id: SE_PIN
-    pin: { number: GPIO17, inverted: true }
+    pin:
+      number: GPIO17
+      inverted: true
   - platform: gpio
     id: ENABLE_5V_PIN
-    pin: { number: GPIO16, inverted: true }
+    pin:
+      number: GPIO16
+      inverted: true
 
 uart:
   id: modbus_uart
   rx_pin: GPIO21
   tx_pin: GPIO22
   baud_rate: 9600
-  # NO dir_pin - hardware auto-direction!
+  rx_buffer_size: 512
 
+# =========================================================
+# NIBE GATEWAY (UDP to Home Assistant)
+# =========================================================
 nibegw:
   id: nibe_gw_hub
   uart_id: modbus_uart
@@ -98,64 +151,79 @@ nibegw:
         port: 9999
 
 # =========================================================
-# NIBE SENSORS - COMMENTED OUT FOR v1.2
+# RGB STATUS LED (WS2812 on GPIO4)
 # =========================================================
-# IMPORTANT: These sensors are DISABLED because nibegw is UDP-only and does NOT
-# provide an ESPHome sensor platform. The nibegw component only forwards raw
-# Nibe telegrams via UDP to Home Assistant, where the Nibe integration parses them.
-#
-# FUTURE PLANS (Standalone Competition & Visualization):
-# These sensors will be re-enabled when we implement:
-# 1. Custom Nibe register parsing component (direct ESP32 parsing)
-# 2. Visual representation of pump data for Standalone Visualization
-# 3. Real-time temperature/status display on local web interface
-#
-# For now, Nibe sensor data is available in Home Assistant via the Nibe integration.
-# The ESP32 smart control uses ONLY spot prices (no temperature feedback).
-# =========================================================
-# sensor:
-#   # Nibe Heat Pump Sensors (for future visualization - currently disabled)
-#   - platform: homeassistant
-#     id: supply_temperature
-#     entity_id: sensor.nibe_supply_temperature
-#     name: "Supply Temperature"
-#     internal: false
-#
-#   - platform: homeassistant
-#     id: return_temperature
-#     entity_id: sensor.nibe_return_temperature
-#     name: "Return Temperature"
-#     internal: false
-#
-#   - platform: homeassistant
-#     id: outdoor_temperature
-#     entity_id: sensor.nibe_outdoor_temperature
-#     name: "Outdoor Temperature"
-#     internal: false
-#
-#   - platform: homeassistant
-#     id: hot_water_top
-#     entity_id: sensor.nibe_hot_water_top
-#     name: "Hot Water Top"
-#     internal: false
-#
-#   - platform: homeassistant
-#     id: degree_minutes
-#     entity_id: sensor.nibe_degree_minutes
-#     name: "Degree Minutes"
-#     internal: false
-#
-#   - platform: homeassistant
-#     id: compressor_frequency
-#     entity_id: sensor.nibe_compressor_frequency
-#     name: "Compressor Frequency"
-#     internal: false
+light:
+  - platform: esp32_rmt_led_strip
+    id: status_led
+    name: "Status LED"
+    pin: GPIO4
+    num_leds: 1
+    chipset: WS2812
+    rgb_order: GRB
+    default_transition_length: 0s
+    effects: []
+    internal: true
 
 # =========================================================
-# SPOT PRICE SENSORS (Active)
+# HTTP REQUEST COMPONENT (Spot Price Fetching)
+# =========================================================
+http_request:
+  id: http_client
+  useragent: esphome/revolt-smartbox
+  timeout: 10s
+  verify_ssl: false
+
+# =========================================================
+# SENSORS — Nibe (from HA), Spot Price, System Info
 # =========================================================
 sensor:
-  # Spot Price Sensor (updated via HTTP request)
+  # --- Nibe Heat Pump Sensors (imported from Home Assistant) ---
+  - platform: homeassistant
+    id: nibe_supply_temp
+    entity_id: sensor.f1245_bt2_supply_temp
+    name: "BT2 Supply Temp"
+    icon: "mdi:thermometer"
+    unit_of_measurement: "°C"
+    device_class: temperature
+
+  - platform: homeassistant
+    id: nibe_return_temp
+    entity_id: sensor.f1245_bt3_return_temp
+    name: "BT3 Return Temp"
+    icon: "mdi:thermometer"
+    unit_of_measurement: "°C"
+    device_class: temperature
+
+  - platform: homeassistant
+    id: nibe_outdoor_temp
+    entity_id: sensor.f1245_bt1_outdoor_temperature
+    name: "BT1 Outdoor Temp"
+    icon: "mdi:thermometer-lines"
+    unit_of_measurement: "°C"
+    device_class: temperature
+
+  - platform: homeassistant
+    id: nibe_hw_top
+    entity_id: sensor.f1245_bt7_hw_top
+    name: "BT7 Hot Water Top"
+    icon: "mdi:water-thermometer"
+    unit_of_measurement: "°C"
+    device_class: temperature
+
+  - platform: homeassistant
+    id: nibe_degree_minutes
+    entity_id: sensor.f1245_degree_minutes_16_bit
+    name: "Degree Minutes"
+    icon: "mdi:counter"
+
+  - platform: homeassistant
+    id: nibe_compressor_state
+    entity_id: sensor.f1245_compressor_state_ep14
+    name: "Compressor State"
+    icon: "mdi:heat-pump"
+
+  # --- Spot Price Sensors ---
   - platform: template
     name: "Current Spot Price"
     id: current_spot_price
@@ -165,7 +233,6 @@ sensor:
     state_class: measurement
     icon: "mdi:cash"
 
-  # Daily price statistics for smart logic
   - platform: template
     name: "Daily Min Price"
     id: daily_min_price
@@ -180,32 +247,133 @@ sensor:
     accuracy_decimals: 2
     icon: "mdi:arrow-up"
 
-# =========================================================
-# NIBE CONTROL (via Home Assistant services)
-# Note: Direct register writing requires Home Assistant integration
-# =========================================================
-number:
   - platform: template
-    id: heat_curve_offset
-    name: "Heat Curve Offset"
-    optimistic: true
-    min_value: -10
-    max_value: 10
-    step: 1
-    mode: box
-    initial_value: 0
-    set_action:
-      - homeassistant.service:
-          service: number.set_value
-          data:
-            entity_id: number.nibe_heat_curve_offset
-            value: !lambda 'return x;'
+    name: "Daily Avg Price"
+    id: daily_avg_price
+    unit_of_measurement: "öre/kWh"
+    accuracy_decimals: 2
+    icon: "mdi:approximately-equal"
 
+  # --- Nerd Tab: System Info ---
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    id: wifi_signal_db
+    update_interval: 60s
+    icon: "mdi:wifi"
+
+  - platform: uptime
+    name: "Uptime"
+    id: uptime_sensor
+    update_interval: 60s
+    icon: "mdi:timer-outline"
+
+  - platform: template
+    name: "Free Heap"
+    id: free_heap
+    unit_of_measurement: "bytes"
+    accuracy_decimals: 0
+    update_interval: 30s
+    icon: "mdi:memory"
+    entity_category: diagnostic
+    lambda: |-
+      return heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+
+# =========================================================
+# TEXT SENSORS — Status, Nerd Tab Info
+# =========================================================
+text_sensor:
+  - platform: template
+    name: "Price Status"
+    id: price_status
+    icon: "mdi:information"
+
+  - platform: template
+    name: "Price Sparkline"
+    id: price_sparkline
+    icon: "mdi:chart-line"
+
+  - platform: template
+    name: "Cheapest Period"
+    id: cheapest_period
+    icon: "mdi:cash-minus"
+
+  - platform: template
+    name: "Price Horizon"
+    id: price_horizon
+    icon: "mdi:clock-outline"
+
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+      icon: "mdi:ip-network"
+    mac_address:
+      name: "MAC Address"
+      icon: "mdi:ethernet"
+
+  - platform: version
+    name: "ESPHome Version"
+    icon: "mdi:tag"
+
+# =========================================================
+# THE BRAIN — Control Mode Selector
+# =========================================================
 select:
+  - platform: template
+    id: control_mode
+    name: "Control Mode"
+    icon: "mdi:brain"
+    optimistic: true
+    restore_value: true
+    options:
+      - "Home Assistant (Manual)"
+      - "LilyGo Local (Spot Price)"
+      - "Revolt Energy Cloud"
+    initial_option: "Home Assistant (Manual)"
+    set_action:
+      - logger.log:
+          format: "Control mode changed to: %s"
+          args: ['x.c_str()']
+      - lambda: |-
+          // Safety: On mode change, reset heat curve to 0 and hot water to Normal
+          ESP_LOGI("brain", "Mode transition — resetting controls to safe defaults");
+          auto hc_call = id(heat_curve_offset).make_call();
+          hc_call.set_value(0);
+          hc_call.perform();
+          auto hw_call = id(hot_water_mode).make_call();
+          hw_call.set_option("Normal");
+          hw_call.perform();
+      - if:
+          condition:
+            lambda: 'return x == "LilyGo Local (Spot Price)";'
+          then:
+            - light.turn_on:
+                id: status_led
+                brightness: 40%
+                red: 0%
+                green: 100%
+                blue: 0%
+            - script.execute: fetch_spot_price
+      - if:
+          condition:
+            lambda: 'return x == "Revolt Energy Cloud";'
+          then:
+            - light.turn_on:
+                id: status_led
+                brightness: 40%
+                red: 50%
+                green: 0%
+                blue: 100%
+            - logger.log:
+                level: WARN
+                format: "Cloud mode is a placeholder — not yet implemented."
+
+  # --- Hot Water Mode (writes to HA) ---
   - platform: template
     id: hot_water_mode
     name: "Hot Water Mode"
+    icon: "mdi:water-boiler"
     optimistic: true
+    restore_value: true
     options:
       - "Economy"
       - "Normal"
@@ -219,32 +387,80 @@ select:
             option: !lambda 'return x;'
 
 # =========================================================
-# HTTP REQUEST COMPONENT (Spot Price Fetching)
+# THE CONFIGURATOR — User Settings (saved to flash)
 # =========================================================
-http_request:
-  id: http_client
-  useragent: esphome/nibe-smartbox
-  timeout: 10s
-  verify_ssl: false  # Bypass SSL verification for ESP32 compatibility
-
-# =========================================================
-# TEXT SENSORS (For price status)
-# =========================================================
-text_sensor:
+  # --- Electricity Region Selector ---
   - platform: template
-    name: "Price Status"
-    id: price_status
-    icon: "mdi:information"
+    id: elec_region
+    name: "Electricity Region"
+    icon: "mdi:map-marker"
+    optimistic: true
+    restore_value: true
+    options:
+      - "SE1"
+      - "SE2"
+      - "SE3"
+      - "SE4"
+    initial_option: "SE3"
+
+number:
+  # --- Heat Curve Offset (writes to HA) ---
+  - platform: template
+    id: heat_curve_offset
+    name: "Heat Curve Offset"
+    icon: "mdi:thermostat"
+    optimistic: true
+    restore_value: true
+    min_value: -10
+    max_value: 10
+    step: 1
+    mode: box
+    initial_value: 0
+    set_action:
+      - homeassistant.service:
+          service: number.set_value
+          data:
+            entity_id: number.nibe_heat_curve_offset
+            value: !lambda 'return x;'
+
+  # --- Max Price Threshold ---
+  - platform: template
+    id: max_price_threshold
+    name: "Max Price Threshold"
+    icon: "mdi:currency-usd"
+    optimistic: true
+    restore_value: true
+    min_value: 0
+    max_value: 500
+    step: 5
+    unit_of_measurement: "öre/kWh"
+    mode: box
+    initial_value: 100
 
 # =========================================================
-# RESTART BUTTON
+# CLOUD API KEY (text input for future Revolt Cloud)
+# =========================================================
+text:
+  - platform: template
+    id: cloud_api_key
+    name: "Cloud API Key"
+    icon: "mdi:key"
+    optimistic: true
+    restore_value: true
+    initial_value: ""
+    min_length: 0
+    max_length: 64
+    mode: text
+    entity_category: diagnostic
+
+# =========================================================
+# BUTTONS
 # =========================================================
 button:
   - platform: restart
     name: "Restart"
     icon: "mdi:restart"
 
-  # Manual spot price update button
   - platform: template
     name: "Update Spot Price"
     icon: "mdi:refresh"
@@ -252,152 +468,236 @@ button:
       - script.execute: fetch_spot_price
 
 # =========================================================
-# SMART CONTROL LOGIC
+# GLOBALS — for price data storage
+# =========================================================
+globals:
+  - id: prices_fetched_today
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+  - id: all_prices
+    type: std::vector<float>
+    restore_value: false
+  - id: today_price_count
+    type: int
+    restore_value: false
+    initial_value: '0'
+
+# =========================================================
+# SPOT PRICE FETCHING SCRIPT
 # =========================================================
 script:
   - id: fetch_spot_price
     mode: restart
     then:
-      - logger.log: "Fetching current spot price..."
+      - light.turn_on:
+          id: status_led
+          brightness: 40%
+          red: 0%
+          green: 0%
+          blue: 100%
+      # Step 1: Clear global price storage
+      - lambda: |-
+          id(all_prices).clear();
+          id(today_price_count) = 0;
+      # Step 2: Fetch TODAY's prices
+      - logger.log: "Fetching today's spot prices..."
       - http_request.get:
           url: !lambda |-
-            auto time = id(sntp_time).now();
-            char url[100];
-            snprintf(url, sizeof(url), "https://www.elprisetjustnu.se/api/v1/prices/%04d/%02d-%02d_SE3.json",
-                     time.year, time.month, time.day_of_month);
-            ESP_LOGI("spot_price", "Fetching from URL: %s", url);
+            auto t = id(sntp_time).now();
+            std::string r = id(elec_region).current_option();
+            char url[128];
+            snprintf(url, sizeof(url),
+              "https://www.elprisetjustnu.se/api/v1/prices/%04d/%02d-%02d_%s.json",
+              t.year, t.month, t.day_of_month, r.c_str());
+            ESP_LOGI("spot", "Today URL: %s", url);
             return std::string(url);
           capture_response: true
           max_response_buffer_size: 16384
           on_response:
             then:
               - lambda: |-
-                  ESP_LOGD("spot_price", "HTTP Response Code: %d", response->status_code);
-                  
                   if (response->status_code != 200) {
-                    ESP_LOGE("spot_price", "HTTP request failed with code: %d", response->status_code);
+                    ESP_LOGE("spot", "Today HTTP error: %d", response->status_code);
                     id(price_status).publish_state("HTTP Error");
                     return;
                   }
-                  
-                  // body parameter is already available from on_response
-                  ESP_LOGI("spot_price", "Response body length: %d bytes", body.length());
-                  
-                  if (body.length() >= 16000) {
-                    ESP_LOGW("spot_price", "WARNING: Response may be truncated! Increase buffer size.");
+                  // Parse current price (exact 15-min slot)
+                  auto t = id(sntp_time).now();
+                  int cur_h = t.hour;
+                  int cur_m = (t.minute / 15) * 15;
+                  char pat[64];
+                  snprintf(pat, sizeof(pat), "\"time_start\":\"%04d-%02d-%02dT%02d:%02d",
+                    t.year, t.month, t.day_of_month, cur_h, cur_m);
+                  int pos = body.find(pat);
+                  if (pos != std::string::npos) {
+                    int sp = body.find("\"SEK_per_kWh\":", pos);
+                    if (sp != std::string::npos) {
+                      sp += 14;
+                      int ep = body.find_first_of(",}", sp);
+                      float ore = std::stof(body.substr(sp, ep - sp)) * 100.0f;
+                      id(current_spot_price).publish_state(ore);
+                      ESP_LOGI("spot", "Current (%02d:%02d): %.2f ore/kWh", cur_h, cur_m, ore);
+                    }
                   }
-                  
-                  // Get current hour
-                  auto time = id(sntp_time).now();
-                  int current_hour = time.hour;
-                  ESP_LOGI("spot_price", "Current hour: %d", current_hour);
-                  
-                  // Debug: Show first 200 chars of JSON
-                  ESP_LOGD("spot_price", "JSON start: %.200s", body.c_str());
-                  
-                  // Simple JSON parsing for current hour price
-                  // Format: [{"time_start":"2026-03-15T00:00:00+01:00","SEK_per_kWh":0.85,"EUR_per_kWh":0.08}, ...]
-                  
-                  // Find the price for current hour - use dynamic date
-                  char search_pattern[50];
-                  snprintf(search_pattern, sizeof(search_pattern), "\"time_start\":\"%04d-%02d-%02dT%02d:",
-                           time.year, time.month, time.day_of_month, current_hour);
-                  
-                  ESP_LOGD("spot_price", "Searching for pattern: %s", search_pattern);
-                  
-                  int start_pos = body.find(search_pattern);
-                  if (start_pos == std::string::npos) {
-                    ESP_LOGW("spot_price", "Could not find price for hour %d with pattern: %s", current_hour, search_pattern);
-                    // Debug: Show last 200 chars to see if data is truncated
-                    ESP_LOGD("spot_price", "JSON end: ...%s", body.substr(body.length() - 200).c_str());
-                    id(price_status).publish_state("Price not found");
-                    return;
+                  // Collect ALL today's prices into global vector
+                  size_t spos = 0;
+                  while ((spos = body.find("\"SEK_per_kWh\":", spos)) != std::string::npos) {
+                    spos += 14;
+                    size_t ep = body.find_first_of(",}", spos);
+                    float p = std::stof(body.substr(spos, ep - spos)) * 100.0f;
+                    id(all_prices).push_back(p);
                   }
-                  
-                  // Find SEK_per_kWh value
-                  int sek_pos = body.find("\"SEK_per_kWh\":", start_pos);
-                  if (sek_pos == std::string::npos) {
-                    ESP_LOGW("spot_price", "Could not parse SEK_per_kWh");
-                    return;
-                  }
-                  
-                  sek_pos += 14; // Skip "SEK_per_kWh":
-                  int end_pos = body.find_first_of(",}", sek_pos);
-                  std::string price_str = body.substr(sek_pos, end_pos - sek_pos);
-                  
-                  float price_sek = std::stof(price_str);
-                  float price_ore = price_sek * 100.0; // Convert SEK to öre
-                  
-                  ESP_LOGI("spot_price", "✓ Current spot price: %.2f öre/kWh (%.4f SEK/kWh)", price_ore, price_sek);
-                  
-                  id(current_spot_price).publish_state(price_ore);
-                  
-                  // Calculate daily min/max for smart logic
-                  float min_price = 999999.0;
-                  float max_price = -999999.0;
-                  
-                  // Parse all 24 hours
-                  size_t pos = 0;
-                  while ((pos = body.find("\"SEK_per_kWh\":", pos)) != std::string::npos) {
-                    pos += 14;
-                    size_t end = body.find_first_of(",}", pos);
-                    float p = std::stof(body.substr(pos, end - pos)) * 100.0;
-                    if (p < min_price) min_price = p;
-                    if (p > max_price) max_price = p;
-                  }
-                  
-                  id(daily_min_price).publish_state(min_price);
-                  id(daily_max_price).publish_state(max_price);
-                  
-                  ESP_LOGI("spot_price", "Daily range: %.2f - %.2f öre/kWh", min_price, max_price);
-                  
-                  // SMART CONTROL LOGIC
-                  float price_range = max_price - min_price;
-                  float low_threshold = min_price + (price_range * 0.25); // Lowest 25%
-                  
-                  // Logic 1: Heat Curve Offset based on price
-                  if (price_ore <= low_threshold) {
-                    ESP_LOGI("smart_control", "LOW PRICE - Setting Heat Curve Offset to +2");
-                    auto call = id(heat_curve_offset).make_call();
-                    call.set_value(2);
-                    call.perform();
-                    id(price_status).publish_state("Low Price - Heating Boost");
-                  } else if (price_ore >= (min_price + price_range * 0.75)) {
-                    ESP_LOGI("smart_control", "HIGH PRICE - Setting Heat Curve Offset to -2");
-                    auto call = id(heat_curve_offset).make_call();
-                    call.set_value(-2);
-                    call.perform();
-                    id(price_status).publish_state("High Price - Heating Reduced");
-                  } else {
-                    ESP_LOGI("smart_control", "NORMAL PRICE - Setting Heat Curve Offset to 0");
-                    auto call = id(heat_curve_offset).make_call();
-                    call.set_value(0);
-                    call.perform();
-                    id(price_status).publish_state("Normal Price");
-                  }
-                  
-                  // Logic 2: Hot Water Mode based on extreme low price
-                  if (price_ore < 10.0) {
-                    ESP_LOGI("smart_control", "EXTREMELY LOW PRICE - Setting Hot Water to Luxury");
-                    auto call = id(hot_water_mode).make_call();
-                    call.set_option("Luxury");
-                    call.perform();
-                  } else if (price_ore > (min_price + price_range * 0.75)) {
-                    ESP_LOGI("smart_control", "HIGH PRICE - Setting Hot Water to Economy");
-                    auto call = id(hot_water_mode).make_call();
-                    call.set_option("Economy");
-                    call.perform();
-                  } else {
-                    ESP_LOGI("smart_control", "NORMAL PRICE - Setting Hot Water to Normal");
-                    auto call = id(hot_water_mode).make_call();
-                    call.set_option("Normal");
-                    call.perform();
-                  }
+                  id(today_price_count) = id(all_prices).size();
+                  ESP_LOGI("spot", "Today: %d periods loaded", id(today_price_count));
+      # Step 3: Fetch TOMORROW's prices (only after 13:00 when available)
+      - if:
+          condition:
+            lambda: 'return id(sntp_time).now().hour >= 13 && id(today_price_count) > 0;'
+          then:
+            - logger.log: "Fetching tomorrow's day-ahead prices..."
+            - http_request.get:
+                url: !lambda |-
+                  auto t = id(sntp_time).now();
+                  time_t ts = t.timestamp + 86400;
+                  struct tm tb;
+                  localtime_r(&ts, &tb);
+                  std::string r = id(elec_region).current_option();
+                  char url[128];
+                  snprintf(url, sizeof(url),
+                    "https://www.elprisetjustnu.se/api/v1/prices/%04d/%02d-%02d_%s.json",
+                    tb.tm_year + 1900, tb.tm_mon + 1, tb.tm_mday, r.c_str());
+                  ESP_LOGI("spot", "Tomorrow URL: %s", url);
+                  return std::string(url);
+                capture_response: true
+                max_response_buffer_size: 16384
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code != 200) {
+                          ESP_LOGW("spot", "Tomorrow not available yet (HTTP %d)", response->status_code);
+                          return;
+                        }
+                        size_t spos = 0;
+                        while ((spos = body.find("\"SEK_per_kWh\":", spos)) != std::string::npos) {
+                          spos += 14;
+                          size_t ep = body.find_first_of(",}", spos);
+                          float p = std::stof(body.substr(spos, ep - spos)) * 100.0f;
+                          id(all_prices).push_back(p);
+                        }
+                        int tmrw = id(all_prices).size() - id(today_price_count);
+                        ESP_LOGI("spot", "Tomorrow: %d periods loaded", tmrw);
+      # Step 4: Post-process all prices (sparkline, cheapest, stats, control)
+      - lambda: |-
+          auto& prices = id(all_prices);
+          int count = prices.size();
+          if (count == 0) return;
+
+          // Stats
+          float min_p = 999999, max_p = -999999, sum_p = 0;
+          for (int i = 0; i < count; i++) {
+            if (prices[i] < min_p) min_p = prices[i];
+            if (prices[i] > max_p) max_p = prices[i];
+            sum_p += prices[i];
+          }
+          id(daily_min_price).publish_state(min_p);
+          id(daily_max_price).publish_state(max_p);
+          id(daily_avg_price).publish_state(sum_p / count);
+
+          // Horizon
+          int today_cnt = id(today_price_count);
+          int tmrw_cnt = count - today_cnt;
+          char hz[64];
+          if (tmrw_cnt > 0)
+            snprintf(hz, sizeof(hz), "Today+Tomorrow: %d periods (%dh)", count, count/4);
+          else
+            snprintf(hz, sizeof(hz), "Today only: %d periods (%dh)", count, count/4);
+          id(price_horizon).publish_state(hz);
+          ESP_LOGI("spot", "%s | Range: %.0f-%.0f, Avg: %.0f", hz, min_p, max_p, sum_p/count);
+
+          // Sparkline from current period onward
+          auto t = id(sntp_time).now();
+          int cur_idx = t.hour * 4 + (t.minute / 15);
+          const char* bars = " _.,-:=!#";
+          float sr = (max_p - min_p);
+          if (sr < 1.0f) sr = 1.0f;
+          std::string spark;
+          for (int i = cur_idx; i < count && i < cur_idx + 64; i++) {
+            int lvl = (int)((prices[i] - min_p) / sr * 7);
+            if (lvl < 0) lvl = 0; if (lvl > 7) lvl = 7;
+            spark += bars[lvl];
+          }
+          id(price_sparkline).publish_state(spark);
+
+          // Cheapest 1-hour (4-period) window from now onward
+          float best_avg = 999999;
+          int best_i = cur_idx;
+          for (int i = cur_idx; i + 3 < count; i++) {
+            float a = (prices[i]+prices[i+1]+prices[i+2]+prices[i+3]) / 4.0f;
+            if (a < best_avg) { best_avg = a; best_i = i; }
+          }
+          int bi = best_i % 96;
+          int bh = bi/4, bm = (bi%4)*15;
+          int ei = (best_i+4) % 96;
+          int ehh = ei/4, em = (ei%4)*15;
+          const char* day_lbl = (best_i >= 96) ? " tmrw" : "";
+          char cb[64];
+          snprintf(cb, sizeof(cb), "%02d:%02d-%02d:%02d%s (avg %.0f ore)",
+                   bh, bm, ehh, em, day_lbl, best_avg);
+          id(cheapest_period).publish_state(cb);
+
+          id(prices_fetched_today) = true;
+
+          // Smart control (only in spot price mode)
+          if (std::string(id(control_mode).current_option()) != "LilyGo Local (Spot Price)") return;
+          float price_ore = id(current_spot_price).state;
+          float threshold = id(max_price_threshold).state;
+          float range = max_p - min_p;
+          float low_c = min_p + range * 0.25f;
+          float high_c = min_p + range * 0.75f;
+
+          if (price_ore <= low_c) {
+            auto c = id(heat_curve_offset).make_call(); c.set_value(2); c.perform();
+            id(price_status).publish_state("Low Price - Boost");
+          } else if (price_ore >= high_c || price_ore >= threshold) {
+            auto c = id(heat_curve_offset).make_call(); c.set_value(-2); c.perform();
+            id(price_status).publish_state("High Price - Reduced");
+          } else {
+            auto c = id(heat_curve_offset).make_call(); c.set_value(0); c.perform();
+            id(price_status).publish_state("Normal Price");
+          }
+          if (price_ore < 10.0f) {
+            auto c = id(hot_water_mode).make_call(); c.set_option("Luxury"); c.perform();
+          } else if (price_ore >= high_c || price_ore >= threshold) {
+            auto c = id(hot_water_mode).make_call(); c.set_option("Economy"); c.perform();
+          } else {
+            auto c = id(hot_water_mode).make_call(); c.set_option("Normal"); c.perform();
+          }
+      - light.turn_on:
+          id: status_led
+          brightness: 40%
+          red: 0%
+          green: 100%
+          blue: 0%
 
 # =========================================================
-# AUTOMATION - Hourly Spot Price Update
+# AUTOMATION — Hourly fetch + midnight reset
 # =========================================================
 interval:
-  - interval: 60min
+  - interval: 15min
     then:
-      - script.execute: fetch_spot_price
+      - if:
+          condition:
+            lambda: 'return std::string(id(control_mode).current_option()) == "LilyGo Local (Spot Price)";'
+          then:
+            - script.execute: fetch_spot_price
+
+  - interval: 60s
+    then:
+      # Midnight reset: mark prices as stale so next hourly fetch re-downloads
+      - lambda: |-
+          auto t = id(sntp_time).now();
+          if (t.hour == 0 && t.minute == 0) {
+            id(prices_fetched_today) = false;
+            ESP_LOGI("sched", "Midnight — prices marked stale");
+          }
