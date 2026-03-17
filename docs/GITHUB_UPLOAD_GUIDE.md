@@ -1,4 +1,4 @@
-# GitHub Desktop Upload Guide - Nibe Smartbox v1.0
+# GitHub Desktop Upload Guide - Nibe Smartbox
 
 ## 📋 Step-by-Step Instructions
 

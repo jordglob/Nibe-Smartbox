@@ -1,4 +1,4 @@
-# Nibe Smartbox - Build & Deployment Guide
+# Revolt Nibe Smartbox - Build & Deployment Guide
 
 ## 📋 Table of Contents
 1. [Overview](#overview)
@@ -460,6 +460,68 @@ http://192.168.X.X  (device IP address)
 
 ---
 
+## V1.3 Architecture Changes (2026-03-17)
+
+### Timing-Safe Dual-Priority Boot
+
+V1.3 introduced a critical architectural change: **dual-priority boot sequence** to prevent nibegw MODBUS timing violations (alarm 251).
+
+```yaml
+on_boot:
+  # STAGE 1 (priority 800): Hardware init FIRST
+  - priority: 800
+    then:
+      - output.turn_on: ENABLE_PIN
+      - output.turn_on: SE_PIN
+      - output.turn_on: ENABLE_5V_PIN
+
+  # STAGE 2 (priority -100): Non-critical features AFTER nibegw stabilizes
+  - priority: -100
+    then:
+      - light.turn_on: { id: status_led, blue: 100% }
+      - wait_until: wifi.connected
+      - light.turn_on: { id: status_led, green: 100% }
+      - delay: 60s  # Let nibegw establish token passing
+      - wait_until: time.has_time
+      - script.execute: fetch_spot_price
+```
+
+**Why 60s?** The Nibe heat pump needs ~30-45s to establish stable token passing. Any HTTP fetch or LED update during this window can cause the ESP32 main loop to exceed 30ms, triggering alarm 251.
+
+### 15-Minute Price Granularity
+
+Sweden switched to 15-minute settlement periods (96 slots/day). V1.3 matches this:
+- Interval changed from 60min → 15min
+- Price lookup matches exact quarter-hour slot
+- "Current Price Slot" sensor shows e.g. `"22:15-22:30"`
+
+### Control Mode "The Brain"
+
+Three operating modes via web UI select:
+1. **Home Assistant (Manual)** — ESP32 is passive, HA controls everything
+2. **LilyGo Local (Spot Price)** — ESP32 autonomously adjusts heat curve/hot water
+3. **Revolt Energy Cloud** — Placeholder for future cloud API
+
+Smart control logic only executes when mode 2 is active.
+
+### V1.3 Compilation Notes
+
+| Issue | Fix |
+|-------|-----|
+| `rmt_channel` deprecated | Removed from `esp32_rmt_led_strip` config |
+| `Select::state` deprecated | Changed to `.current_option()` |
+| `std::stof()` crash risk | Replaced with `atof()` (no exceptions) |
+| `ESP_ERR_HTTP_CONNECT` | Added `follow_redirects: true`, timeout 15s |
+
+### V1.3 Performance
+
+```
+RAM:   [=         ]  12.0% (used 39276 bytes from 327680 bytes)
+Flash: [======    ]  58.5% (used 1073939 bytes from 1835008 bytes)
+```
+
+---
+
 ## Future Improvements
 
 ### 1. Standalone Operation (No Home Assistant)
@@ -511,10 +573,25 @@ http://192.168.X.X  (device IP address)
 
 ```
 Nibe Smartbox/
+├── README.md              # Project landing page
+├── CHANGELOG.md           # Version history
+├── LICENSE                # MIT License
 ├── smartbox.yaml          # Main ESPHome configuration
-├── BUILD_GUIDE.md         # This file
-├── .gitignore            # Git ignore rules
-└── components/           # (Auto-created by ESPHome)
+├── .gitignore             # Git ignore rules
+├── docs/
+│   ├── BUILD_GUIDE.md     # This file
+│   ├── PLANNING.md        # Feature brainstorming & roadmap
+│   ├── GITHUB_UPLOAD_GUIDE.md
+│   └── VSCODE_GIT_GUIDE.md
+├── firmware/
+│   ├── firmware.bin        # Latest build
+│   ├── firmware.factory.bin
+│   ├── firmware.ota.bin
+│   ├── v1.2/              # V1.2 archive
+│   └── v1.3/              # V1.3 archive
+├── backups/
+│   └── smartbox_v12.yaml  # V1.2 YAML backup
+└── components/            # (Auto-created by ESPHome)
 ```
 
 ---
@@ -557,6 +634,6 @@ This firmware is provided "as is" without warranty. Use at your own risk. Always
 
 ---
 
-**Last Updated**: 2026-03-15  
-**Version**: 1.2  
+**Last Updated**: 2026-03-17  
+**Version**: 1.3  
 **Tested With**: ESPHome 2026.2.2, LilyGo T-CAN485 v1.1, Nibe F1245

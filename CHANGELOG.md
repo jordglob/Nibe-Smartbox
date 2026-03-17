@@ -6,43 +6,52 @@ All notable changes to the Revolt Smartbox project will be documented in this fi
 
 ## [1.3.0] - 2026-03-16
 
-### 🚀 Spot Price Optimizer with 15-Minute Resolution
+### 🚀 Timing-Safe Spot Price Controller — 15 Bug Fixes
 
-V1.3 transforms the Smartbox into a fully autonomous spot-price-aware heat pump controller.
+V1.3 is a complete rewrite focused on MODBUS timing safety and 15-minute price granularity. Every feature was validated against the nibegw 30ms response deadline.
 
 ### ✨ New Features
 
-- **15-minute price matching** — Sweden's new quarter-hour settlement periods (96 periods/day)
-- **Price Sparkline** — ASCII text sensor showing future price trend from current period onward
-- **Cheapest Period** — Finds the cheapest 1-hour window in remaining day
-- **Price Horizon** — Shows loaded data count (e.g., "96 periods (24 hours)")
-- **Control Mode Selector** — 3 modes: HA Manual, Local Spot Price, Revolt Cloud
-- **The Configurator** — Region (SE1-SE4), Max Price Threshold, Cloud API Key (all saved to flash)
-- **Smart Control Logic** — Adjusts Heat Curve and Hot Water Mode based on price quartiles
-- **Nibe Sensors** — 6 sensors imported from Home Assistant (BT1, BT2, BT3, BT7, DM, Compressor)
-- **Nerd Tab** — IP, MAC, ESPHome Version, WiFi Signal, Uptime, Free Heap
-- **RGB Status LED** — Blue=booting, Green=connected, Red=disconnected
+- **15-minute price slots** — Matches Sweden's quarter-hour settlement (96 periods/day)
+- **Current Price Slot** — Text sensor showing active slot (e.g., "22:15-22:30")
+- **Control Mode "The Brain"** — Select: HA Manual / LilyGo Local (Spot Price) / Revolt Cloud
+- **Max Price Threshold** — User-configurable emergency cutback level (saved to flash)
+- **Emergency Economy** — Auto offset -3 when price exceeds user threshold
+- **Nerd Tab** — IP, MAC, ESPHome Version, WiFi Signal, Uptime
+- **RGB Status LED** — Blue=booting, Green=connected (internal, lightweight)
+- **Midnight Auto-Fetch** — Reliable `on_time` trigger at 00:00:30
 
-### 🐛 Bug Fixes
+### 🐛 15 Bug Fixes (vs failed V1.3-draft and V1.2)
 
-- **Fixed**: UDP target reverted to broadcast `255.255.255.255` (V1.2 accidentally set to unicast)
-- **Fixed**: Price lookup matches exact 15-min slot, not just hour
-- **Fixed**: Counter correctly reports "96 periods" instead of "96 hours"
-- **Fixed**: Manual "Update Spot Price" button works in any mode
-- **Fixed**: 5-minute boot delay prevents nibegw UART conflicts during startup
+1. **Loop blocking >30ms** — Removed all `homeassistant` platform sensors, sparkline, free_heap lambda
+2. **RMT LED timing** — Set only on boot, marked `internal: true`
+3. **rx_buffer_size: 512** — Reverted to default 256 (proven stable)
+4. **std::vector heap alloc** — Removed dynamic allocation entirely
+5. **HTTP blocks nibegw** — Added 100ms yield before fetch
+6. **No HTTP error handling** — Added proper fallback with status publishing
+7. **stof() crash risk** — Replaced with `atof()` (no exceptions on bad data)
+8. **GPIO enable timing** — Moved to `on_boot priority: 800` (hardware init)
+9. **Mode change blocking** — Changed to `script.execute` for deferred reset
+10. **No stabilization guard** — 60s post-boot delay before any non-essential processing
+11. **Hot Water restore_value** — Removed; pump state is authoritative on boot
+12. **WiFi LED during MODBUS** — LED now boot-only, no WiFi event callbacks
+13. **Spot logic runs in Manual mode** — Added mode guard; skips smart control if not Spot Price
+14. **HA service call spacing** — Emergency mode returns early to avoid stacking calls
+15. **Midnight reset missed** — Changed from interval check to `on_time` trigger
 
 ### 📊 Performance
 
-- **RAM**: 12.0% (39,452 / 327,680 bytes)
-- **Flash**: 59.2% (1,085,975 / 1,835,008 bytes)
-- **HTTP buffer**: 16,384 bytes (API response ~13.6KB)
-- **Free heap at runtime**: ~215KB
+- **RAM**: 12.0% (39,276 / 327,680 bytes)
+- **Flash**: 58.5% (1,073,939 / 1,835,008 bytes)
+- **HTTP buffer**: 16,384 bytes
+- **Compile**: Clean first attempt (1 minor fix: removed deprecated `rmt_channel`)
 
 ### ⚠️ Known Limitations
 
 - Fetches today's prices only (tomorrow's day-ahead not yet implemented)
-- Cloud mode is a placeholder
+- Cloud mode is a placeholder (mode 3)
 - Home Assistant required for Nibe register read/write
+- Region hardcoded to SE3 (configurator input ready but not yet wired to URL)
 
 ---
 

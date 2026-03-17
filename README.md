@@ -1,16 +1,8 @@
-# Nibe Smartbox v1.2
-Planering för V1.3
-här är vi kvar på .yaml nivå, ingen ändring av NibeGW orginalkod
-1. Kan NibeGW HELA projekt inklusive cloes and open issues laddas ner lokalt på hårddisken, verkar som vissa AI inte kan nå hemsidan...
-2. Kan en EXTREMT enkel Indikator LED läggas till i yaml koden.
-3. Hur får jag tillgång till best practice för parsing nibes modbus protokoll. 
-4. behöver jag ange Nibe-modell eller är modbus- protokollet fungerande generellt?
-5. hur vet jag vad som styr just nu, säg att HA är inkopplat och programerad för styrning. samtidigt får liligo in elpriset via nätet (eller via ett anrop till server.relvolt-energy.org som jag har planer på att lägga en mini AI för styrning baserat på väderprognos effkekttariff feeback från tibber API mm mm) kanske en spak som jag själv väljer.
-6. nu finns det hårdkodade parametrar i koden, kan man ha en "kongiurator" man går igenom där man bland annat väljer vilket SE-område eller land. frågan är generell lista alla parametrar med rekomendation
-7. Kan websidan få en nörd-flik-knapp? där tänker jag att senast tilldelad ipnummer, Mackadress builddatum version mm mm presenteras 
-sists. föreslå om man ska dela upp detta olika byggen?hur komplex kan man göra deta innan det blir ostablit? när HA är anslutet 
+# Revolt Nibe Smartbox v1.3
 
 **Commercial-grade smart controller firmware for Nibe heat pumps with autonomous electricity spot price optimization**
+
+> 📋 *Development planning notes moved to [docs/PLANNING.md](docs/PLANNING.md)*
 
 [![ESPHome](https://img.shields.io/badge/ESPHome-2026.2.2-blue.svg)](https://esphome.io)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -28,11 +20,15 @@ Nibe Smartbox transforms your Nibe F1245 heat pump into an intelligent, cost-opt
 ### ✨ Key Features
 
 - 🔌 **Plug & Play RS485** - Hardware auto-direction (critical for T-CAN485 v1.1)
-- 💰 **Smart Price Optimization** - Automatic heating adjustments based on spot prices
+- 💰 **15-Min Spot Price Optimization** - Quarter-hour price matching (96 slots/day)
+- 🧠 **Control Mode "The Brain"** - Switch between HA Manual, Local Spot Price, or Cloud
+- 🚨 **Emergency Cutback** - Auto offset -3 when price exceeds user threshold
 - 🌐 **Web Interface** - Local monitoring and control (Web Server v3)
-- 🏠 **Home Assistant Ready** - Full integration via ESPHome API
+- 🏠 **Home Assistant Ready** - Full integration via ESPHome API + UDP gateway
 - 📡 **OTA Updates** - Wireless firmware updates
-- ⚡ **Real-time Control** - Dynamic heat curve and hot water mode adjustments
+- 💡 **RGB Status LED** - Blue=booting, Green=connected (lightweight, boot-only)
+- 🔧 **Nerd Tab** - IP, MAC, ESPHome Version, WiFi Signal, Uptime
+- ⚡ **Timing-Safe Architecture** - Dual-priority boot, 60s stabilization guard
 
 ---
 
@@ -42,7 +38,7 @@ Nibe Smartbox transforms your Nibe F1245 heat pump into an intelligent, cost-opt
 ┌─────────────────┐
 │  Spot Price API │ (elprisetjustnu.se)
 └────────┬────────┘
-         │ Hourly fetch
+         │ Every 15 min
          ▼
 ┌─────────────────┐
 │  ESP32 Smartbox │
@@ -64,6 +60,7 @@ Nibe Smartbox transforms your Nibe F1245 heat pump into an intelligent, cost-opt
 | **Normal** (middle 50%) | 0 (standard) | Normal |
 | **High** (top 25%) | -2 (reduce heating) | Economy |
 | **Extremely Low** (<10 öre) | +2 | **Luxury** |
+| **Above User Max** | -3 (emergency) | Economy |
 
 ---
 
@@ -105,11 +102,13 @@ After upload, monitor logs for successful spot price fetch:
 
 ## 📖 Documentation
 
-- **[BUILD_GUIDE.md](BUILD_GUIDE.md)** - Complete build & deployment guide
-  - Architecture & design decisions
-  - Compilation challenges & solutions
-  - Troubleshooting guide
-  - Configuration reference
+| Document | Description |
+|----------|-------------|
+| **[docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md)** | Complete build & deployment guide |
+| **[docs/PLANNING.md](docs/PLANNING.md)** | Feature brainstorming & V1.4 roadmap |
+| **[docs/GITHUB_UPLOAD_GUIDE.md](docs/GITHUB_UPLOAD_GUIDE.md)** | How to publish to GitHub |
+| **[docs/VSCODE_GIT_GUIDE.md](docs/VSCODE_GIT_GUIDE.md)** | VS Code Git workflow |
+| **[CHANGELOG.md](CHANGELOG.md)** | Version history & bug fixes |
 
 ---
 
@@ -144,11 +143,14 @@ ota:
 
 ## 📈 Performance
 
-- **RAM Usage**: 11.7% (38,456 bytes)
-- **Flash Usage**: 56.5% (1,036,027 bytes)
-- **Spot Price Fetch**: ~1.3 seconds
-- **Update Frequency**: Every 60 minutes
-- **RS485 Communication**: Stable (continuous token passing)
+| Version | RAM | Flash | Update Interval |
+|---------|-----|-------|-----------------|
+| **V1.3** | 12.0% (39,276 bytes) | 58.5% (1,073,939 bytes) | Every 15 min |
+| V1.2 | 11.7% (38,456 bytes) | 56.5% (1,036,027 bytes) | Every 60 min |
+
+- **HTTP Buffer**: 16,384 bytes (API response ~13.6KB)
+- **Boot Stabilization**: 60s guard before spot price fetch
+- **RS485 Communication**: Stable (continuous token passing, no alarm 251)
 
 ---
 
@@ -165,7 +167,7 @@ ota:
 **Problem**: No RS485 communication
 - **Solution**: Verify wiring and ensure NO `dir_pin` configured
 
-See [BUILD_GUIDE.md](BUILD_GUIDE.md#troubleshooting) for detailed troubleshooting.
+See [docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md#troubleshooting) for detailed troubleshooting.
 
 ---
 
@@ -233,13 +235,13 @@ This firmware is provided "as is" without warranty. Use at your own risk. Always
 ## 📞 Support
 
 - **Issues**: [GitHub Issues](https://github.com/jordglob/nibe-smartbox/issues)
-- **Documentation**: [BUILD_GUIDE.md](BUILD_GUIDE.md)
+- **Documentation**: [docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md)
 - **ESPHome**: [ESPHome Documentation](https://esphome.io)
 
 ---
 
 **Made with ❤️ for the Nibe heat pump community**
 
-**Version**: 1.2  
-**Last Updated**: 2026-03-15  
+**Version**: 1.3  
+**Last Updated**: 2026-03-17  
 **Tested With**: ESPHome 2026.2.2, LilyGo T-CAN485 v1.1, Nibe F1245

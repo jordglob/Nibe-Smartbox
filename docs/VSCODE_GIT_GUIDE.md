@@ -324,27 +324,27 @@ fixed stuff
 
 ---
 
-## 🎯 Quick Workflow for v1.2 Release
+## 🎯 Quick Workflow Example
 
 1. **Open Source Control** (`Ctrl+Shift+G`)
-2. **Review changes** (4 files modified)
+2. **Review changes** (modified files listed)
 3. **Stage all** (click + next to "Changes")
 4. **Write message**:
    ```
-   v1.2.0 - Fix sensor architecture + Standalone prep
+   v1.3.0 - Timing-safe spot price controller
    
-   - Commented out homeassistant platform sensors (circular dependency)
-   - Increased buffer to 16KB (13.6KB response verified)
-   - Added Standalone Visualization to roadmap
-   - Updated architecture documentation
+   - 15-minute price granularity
+   - Control Mode "The Brain" (3 modes)
+   - 17 bug fixes for MODBUS timing safety
+   - Reorganized docs/ folder structure
    ```
 5. **Commit** (`Ctrl+Enter`)
 6. **Push** (click "Sync Changes" button)
 7. **Verify** on GitHub.com
 
-**Done! Your v1.2 release is live! 🎉**
+**Done! Your release is live! 🎉**
 
 ---
 
-**Last Updated**: 2026-03-15  
-**Version**: 1.2
+**Last Updated**: 2026-03-17  
+**Version**: 1.3
