@@ -4,6 +4,29 @@ All notable changes to the Revolt Smartbox project will be documented in this fi
 
 ---
 
+## [1.3.1] - 2026-03-17
+
+### 🔧 Emergency Threshold Rework + Documentation
+
+Two bug fixes and a comprehensive heat pump overview document.
+
+### ✨ New
+
+- **Dynamic Emergency Threshold** — Replaced fixed öre/kWh threshold with relative "% of daily max" (default 90%). Only the ~top 10% most expensive hours trigger emergency mode. Configurable via web UI slider (50-100%).
+- **Heat Pump Overview** — New `docs/HEAT_PUMP_OVERVIEW.md`: complete English-language guide covering all three circuits (brine/heating/DHW), all BT sensors, the refrigerant cycle, DHW charging, degree minutes, and how the Smartbox interacts with the F1245.
+
+### 🐛 Bug Fixes
+
+16. **Fixed emergency threshold too aggressive** — Old fixed 100 öre threshold triggered emergency at 100.07 öre (0.07 öre over!). New dynamic threshold adapts to each day's price range automatically.
+17. **Fixed DHW not set during emergency** — Emergency mode used `return` before reaching hot water control logic, leaving DHW mode stuck on whatever it was previously. Now both heating offset AND hot water mode are always set regardless of price zone.
+
+### 📝 Config Changes
+
+- `max_price_threshold` (öre/kWh, fixed) → `emergency_threshold_percent` (%, relative)
+- Default: 90% = emergency only when price > 90% of daily max
+
+---
+
 ## [1.3.0] - 2026-03-16
 
 ### 🚀 Timing-Safe Spot Price Controller — 15 Bug Fixes

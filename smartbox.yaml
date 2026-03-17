@@ -1,7 +1,7 @@
 # =========================================================
-# Revolt Nibe Smartbox V1.3 — Commercial-Grade Controller
+# Revolt Nibe Smartbox V1.3.1 — Commercial-Grade Controller
 # LilyGo T-CAN485 v1.1 + Nibe F1245 Heat Pump
-# 15 bug fixes over V1.2. See CHANGELOG.md.
+# 17 bug fixes over V1.2. See CHANGELOG.md.
 # =========================================================
 
 esphome:
@@ -278,16 +278,16 @@ number:
             value: !lambda 'return x;'
 
   - platform: template
-    id: max_price_threshold
-    name: "Max Price Threshold"
+    id: emergency_threshold_percent
+    name: "Emergency Threshold %"
     optimistic: true
-    min_value: 0
-    max_value: 500
+    min_value: 50
+    max_value: 100
     step: 5
     mode: box
-    initial_value: 100
+    initial_value: 90
     restore_value: true
-    unit_of_measurement: "öre/kWh"
+    unit_of_measurement: "%"
     icon: "mdi:cash-lock"
 
 # =========================================================
@@ -429,20 +429,23 @@ script:
                   float range = mx - mn;
                   float low_t = mn + (range * 0.25f);
                   float high_t = mn + (range * 0.75f);
-                  float user_max = id(max_price_threshold).state;
 
-                  // Emergency cutback if price exceeds user threshold
-                  if (price_ore > user_max) {
-                    ESP_LOGW("spot", "ABOVE USER MAX (%.0f) — Emergency economy", user_max);
-                    auto c1 = id(heat_curve_offset).make_call();
-                    c1.set_value(-3);
-                    c1.perform();
-                    id(price_status).publish_state("EMERGENCY - Above Max Price");
-                    // FIX #14: delay between HA service calls
-                    return;
-                  }
+                  // FIX #16: Dynamic emergency threshold (% of daily max)
+                  // Default 90% = only the top ~10% most expensive hours trigger emergency
+                  float emg_pct = id(emergency_threshold_percent).state / 100.0f;
+                  float emg_threshold = mx * emg_pct;
+                  ESP_LOGI("spot", "Emergency threshold: %.0f%% of max %.1f = %.1f öre",
+                           emg_pct * 100.0f, mx, emg_threshold);
 
-                  if (price_ore <= low_t) {
+                  // Determine heat curve offset
+                  // FIX #17: Emergency no longer uses early return — DHW is always set
+                  if (price_ore > emg_threshold) {
+                    ESP_LOGW("spot", "EMERGENCY — price %.1f > threshold %.1f", price_ore, emg_threshold);
+                    auto c = id(heat_curve_offset).make_call();
+                    c.set_value(-3);
+                    c.perform();
+                    id(price_status).publish_state("EMERGENCY - Top Price");
+                  } else if (price_ore <= low_t) {
                     ESP_LOGI("spot", "LOW price — offset +2");
                     auto c = id(heat_curve_offset).make_call();
                     c.set_value(2);
@@ -462,12 +465,12 @@ script:
                     id(price_status).publish_state("Normal Price");
                   }
 
-                  // Hot water control (with delay for spacing)
+                  // Hot water control — always runs (FIX #17)
                   if (price_ore < 10.0f) {
                     auto c = id(hot_water_mode).make_call();
                     c.set_option("Luxury");
                     c.perform();
-                  } else if (price_ore >= high_t) {
+                  } else if (price_ore > emg_threshold || price_ore >= high_t) {
                     auto c = id(hot_water_mode).make_call();
                     c.set_option("Economy");
                     c.perform();
