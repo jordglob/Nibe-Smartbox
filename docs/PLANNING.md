@@ -148,7 +148,7 @@ TASK — V1.5 Stage 1: Custom Nibe Parser Component
 4. Expose them as ESPHome template sensors with proper names and units
 5. The parser MUST NOT block the loop for >30ms (this is critical)
 6. Update smartbox.yaml to include the new component and sensors
-7. Compile with: esphome compile smartbox.yaml
+7. Compile with: esphome erun smartbox.yaml
 8. Fix any errors autonomously (up to 5 iterations)
 9. Verify RAM usage stays under 50%
 
