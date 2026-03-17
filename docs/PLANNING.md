@@ -1,52 +1,161 @@
-# Planning & Feature Brainstorming
+# Revolt Nibe Smartbox — Version Planning
 
-**Internal development notes — moved from README.md**
+## V1.3 (Current — Released 2026-03-16)
+**Status:** ✅ Deployed, monitoring for stability
 
----
+15 bug fixes over V1.2. Spot price optimizer with 15-min resolution, sparkline, cheapest-period detection. See CHANGELOG.md.
 
-## V1.3 Planning Notes (Original Swedish)
-
-Planering för V1.3
-här är vi kvar på .yaml nivå, ingen ändring av NibeGW orginalkod
-
-1. Kan NibeGW HELA projekt inklusive cloes and open issues laddas ner lokalt på hårddisken, verkar som vissa AI inte kan nå hemsidan...
-2. Kan en EXTREMT enkel Indikator LED läggas till i yaml koden.
-3. Hur får jag tillgång till best practice för parsing nibes modbus protokoll. 
-4. behöver jag ange Nibe-modell eller är modbus- protokollet fungerande generellt?
-5. hur vet jag vad som styr just nu, säg att HA är inkopplat och programerad för styrning. samtidigt får liligo in elpriset via nätet (eller via ett anrop till server.relvolt-energy.org som jag har planer på att lägga en mini AI för styrning baserat på väderprognos effkekttariff feeback från tibber API mm mm) kanske en spak som jag själv väljer.
-6. nu finns det hårdkodade parametrar i koden, kan man ha en "kongiurator" man går igenom där man bland annat väljer vilket SE-område eller land. frågan är generell lista alla parametrar med rekomendation
-7. Kan websidan få en nörd-flik-knapp? där tänker jag att senast tilldelad ipnummer, Mackadress builddatum version mm mm presenteras 
-sists. föreslå om man ska dela upp detta olika byggen? hur komplex kan man göra deta innan det blir ostablit? när HA är anslutet 
+**Stability watch items:**
+- Alarm 251 (communication error) — should not occur
+- "Ignoring byte" in logs — indicates timing regression
+- WiFi drops / reconnect behavior
+- Midnight price fetch reliability
 
 ---
 
-## V1.3 Status — IMPLEMENTED ✅
-
-| # | Feature Request | Status | Implementation |
-|---|---|---|---|
-| 1 | Download elupus project locally | ✅ Done | Analyzed `nibe_issues.json` (25+ issues) |
-| 2 | Simple LED indicator | ✅ Done | GPIO4 RGB via `esp32_rmt_led_strip`, internal, boot-only |
-| 3 | Modbus parsing best practice | ✅ Done | Rely on `elupus/esphome-nibe` (UDP gateway) |
-| 4 | Nibe model specification | ✅ Done | F1245 via `acknowledge: MODBUS40` |
-| 5 | Control mode selector | ✅ Done | "The Brain" — 3 modes: HA Manual / Local Spot / Cloud |
-| 6 | Configurator | ✅ Partial | Max Price Threshold saved to flash. Region ready but not wired |
-| 7 | Nerd tab | ✅ Done | IP, MAC, ESPHome Version, WiFi Signal, Uptime |
+## V1.4 (Skipped unless needed)
+Minor incremental improvements only if V1.3 shows issues:
+- Wire electricity region selector to API URL
+- Tomorrow's day-ahead prices after 13:00
+- Better error recovery on HTTP failures
 
 ---
 
-## V1.4 Roadmap Ideas
+## V1.5 — "The Major Rebuild" 🏗️
+**Goal:** Parse ~10 Nibe sensor values directly on the ESP32 and display them on the local web page, while maintaining full HA integration via nibegw UDP.
 
-- [ ] **Tomorrow's prices** — Fetch day-ahead prices after 13:00 CET
-- [ ] **Region selector wired to URL** — SE1/SE2/SE3/SE4 dropdown changes API endpoint
-- [ ] **Cloud mode (Revolt Energy)** — API endpoint at `server.revolt-energy.org`
-- [ ] **Weather forecast integration** — Adjust heating based on outdoor temp prediction
-- [ ] **Effekttariff awareness** — Peak power tariff avoidance
-- [ ] **Tibber API** — Alternative price source with push notifications
-- [ ] **Standalone Visualization** — Custom Nibe register parsing, visual pump display
-- [ ] **Multi-language web UI** — Swedish/English toggle
-- [ ] **Historical price logging** — Store 7 days of price data on flash
-- [ ] **Mobile-friendly web UI** — Responsive CSS for phone access
+### Key Findings from nibe_issues.json Research
+
+#### 🔴 The 30ms Rule (Non-Negotiable)
+Any operation blocking the ESP32 main loop >30ms kills the Nibe token-passing handshake. Causes alarm 251, "Ignoring byte" cascades, corrupted communication. (Issues #108, #123)
+
+#### 🔴 Proven Loop-Blockers
+- HTTP requests (spot price fetch)
+- Web server serving heavy pages
+- UDP send to unreachable IP (issue #123 — 91ms+ blocks)
+- Verbose logging (issue #108)
+- homeassistant platform sensors
+- Display/LED updates during MODBUS
+
+#### 🟡 nibegw Architecture
+nibegw is a UDP forwarder only. It does NOT parse registers. It receives raw Nibe telegrams via UART and forwards them via UDP to HA. The Nibe HA integration then decodes registers.
+
+#### 🟡 Direct Parsing IS Possible
+From issues #115 (DEH500) and #108 (nptr): People have successfully parsed raw Nibe telegrams directly on ESP32. The `NibeGw.cpp` state machine already decodes frames. The data is there — just forwarded to UDP instead of being parsed locally.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│                ESP32 (LilyGo T-CAN485)          │
+│                                                   │
+│  ┌──────────┐    ┌──────────────┐                │
+│  │ nibegw   │───►│ UDP Forward  │──► HA (as before)
+│  │ (UART)   │    └──────────────┘                │
+│  │          │    ┌──────────────┐                │
+│  │          │───►│ Local Parser │──► Template Sensors
+│  └──────────┘    │ (tap, no     │    (web page)  │
+│                  │  extra UART) │                │
+│                  └──────────────┘                │
+│                                                   │
+│  ┌──────────┐    ┌──────────────┐                │
+│  │ Spot     │───►│ Smart Control│──► HA service  │
+│  │ Price    │    └──────────────┘    calls       │
+│  └──────────┘                                    │
+└─────────────────────────────────────────────────┘
+```
+
+**Key insight:** We don't add a second UART reader. We hook into nibegw's existing `callback_msg_received_type` callback. The parser runs in callback context — just memcpy from an already-parsed buffer. <1ms, zero loop blocking.
+
+### Implementation: Custom ESPHome Component
+
+Write `components/nibe_parser/` C++ component that:
+1. Registers as a listener on nibegw's message callback
+2. Parses MODBUS40 data messages (token 0x68) for known register addresses
+3. Publishes values to ESPHome template sensors
+4. **Zero additional UART load** — piggybacks on nibegw's existing parsing
+5. **Zero loop blocking** — just copies bytes from callback buffer
+
+### Target Sensors (~10)
+
+| Register | Name | Unit | Description |
+|----------|------|------|-------------|
+| 40004 | BT1 Outdoor Temp | °C | Outside temperature |
+| 40008 | BT2 Supply Temp | °C | Heat medium flow |
+| 40012 | BT3 Return Temp | °C | Return temperature |
+| 40013 | BT7 HW Top | °C | Hot water top |
+| 40014 | BT6 HW Load | °C | Hot water charging |
+| 43005 | Degree Minutes | DM | Compressor need indicator |
+| 43009 | Calc Supply Temp | °C | Calculated flow temp |
+| 43084 | Elec Addition Power | kW | Current add. heat power |
+| 44270 | Current (BE1) | A | Phase 1 current |
+| 10012 | Compressor Status | on/off | Compressor running |
+
+### Build Stages
+
+**Stage 1: Custom Parser Component**
+- Write `components/nibe_parser/` C++ component
+- Hook into nibegw callback
+- Parse 10 registers → template sensors
+- Compile & verify no timing regression
+
+**Stage 2: Web Visualization**
+- Display parsed sensors on web page
+- Simple HTML table (no heavy JS frameworks)
+- Keep it under 2KB of HTML
+
+**Stage 3: Remove HA Dependency for Control**
+- Use parsed Degree Minutes + Supply Temp for smarter spot price logic
+- Direct register writes via nibegw UDP (instead of homeassistant.service)
+- True standalone operation possible
+
+### Risk Assessment
+
+| Risk | Severity | Mitigation |
+|------|----------|------------|
+| Custom component blocks loop >30ms | 🔴 Critical | Parser is just memcpy — <1ms |
+| Web server request blocks during MODBUS | 🟡 Medium | Web Server v3 is async; keep page tiny |
+| nibegw callback API changes upstream | 🟡 Medium | Pin to specific git ref |
+| RAM exhaustion with 10 extra sensors | 🟢 Low | Currently at 12% RAM |
+| ESPHome 2026.3.0 socket changes | 🟡 Medium | Monitor upstream |
+
+### Hardware Constraints (Unchanged)
+- GPIO16, GPIO17, GPIO19: MUST be inverted outputs (chip enable)
+- NO dir_pin in software — crashes hardware auto-direction
+- GPIO4: RGB LED (WS2812, lightweight status only)
+- GPIO21/22: UART to Nibe (9600 baud)
+- Framework: Arduino (not esp-idf — nibegw compatibility)
 
 ---
 
-**Last Updated**: 2026-03-17
+## Build Prompt for V1.5 (Copy-Paste for Next Session)
+
+```
+You are an Expert Embedded Systems Architect and ESPHome Developer continuing
+the Revolt Nibe Smartbox project. We are building V1.5.
+
+CONTEXT:
+- Read docs/PLANNING.md for the full V1.5 architectural plan
+- Read smartbox.yaml for the current V1.3 firmware
+- Read temp/nibe_issues.json for known bugs and timing constraints
+- The LilyGo T-CAN485 v1.1 hardware constraints are documented in PLANNING.md
+
+TASK — V1.5 Stage 1: Custom Nibe Parser Component
+1. Create components/nibe_parser/ with a C++ ESPHome custom component
+2. The component must hook into nibegw's message callback to intercept
+   MODBUS40 data telegrams (token 0x68)
+3. Parse the ~10 registers listed in PLANNING.md
+4. Expose them as ESPHome template sensors with proper names and units
+5. The parser MUST NOT block the loop for >30ms (this is critical)
+6. Update smartbox.yaml to include the new component and sensors
+7. Compile with: esphome compile smartbox.yaml
+8. Fix any errors autonomously (up to 5 iterations)
+9. Verify RAM usage stays under 50%
+
+CONSTRAINTS:
+- GPIO16/17/19 must be inverted outputs. NO dir_pin.
+- Framework: Arduino (not esp-idf)
+- nibegw UDP broadcast to 255.255.255.255:9999 must continue working
+- Web Server v3 on port 80 must continue working
+- All V1.3 features (spot price, control modes) must be preserved
+```
