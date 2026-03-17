@@ -149,6 +149,7 @@ After upload, monitor logs for successful spot price fetch:
 
 | Document | Description |
 |----------|-------------|
+| **📚 [docs/HEAT_PUMP_OVERVIEW.md](docs/HEAT_PUMP_OVERVIEW.md)** | **Complete Nibe F1245 system guide** — sensors, circuits, pumps, degree minutes |
 | **[docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md)** | Complete build & deployment guide |
 | **[docs/PLANNING.md](docs/PLANNING.md)** | Feature brainstorming & V1.4 roadmap |
 | **[docs/GITHUB_UPLOAD_GUIDE.md](docs/GITHUB_UPLOAD_GUIDE.md)** | How to publish to GitHub |

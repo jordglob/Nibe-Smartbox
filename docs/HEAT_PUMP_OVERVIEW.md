@@ -14,11 +14,12 @@
 4. [The Refrigerant Cycle (How Heat is Moved)](#the-refrigerant-cycle)
 5. [All BT Sensors Explained](#all-bt-sensors-explained)
 6. [The Heating Cycle (Space Heating)](#the-heating-cycle)
-7. [The Domestic Hot Water (DHW) Cycle](#the-dhw-cycle)
-8. [DHW Temperature Modes](#dhw-temperature-modes)
-9. [The Immersion Heater](#the-immersion-heater)
-10. [Degree Minutes — The Brain of the Compressor](#degree-minutes)
-11. [How the Smartbox Controls the Heat Pump](#how-the-smartbox-controls-the-heat-pump)
+7. [Circulation Pumps (GP1, GP2, GP3)](#circulation-pumps-gp1-gp2-gp3)
+8. [The Domestic Hot Water (DHW) Cycle](#the-dhw-cycle)
+9. [DHW Temperature Modes](#dhw-temperature-modes)
+10. [The Immersion Heater](#the-immersion-heater)
+11. [Degree Minutes — The Brain of the Compressor](#degree-minutes)
+12. [How the Smartbox Controls the Heat Pump](#how-the-smartbox-controls-the-heat-pump)
 
 ---
 
@@ -273,6 +274,127 @@ The Smartbox adjusts this offset based on electricity price.
        └──┬───┬───┬───┬───┬───┬──► Outdoor Temp (BT1)
          -20 -15 -10  -5   0   5°C
 ```
+
+---
+
+## Circulation Pumps (GP1, GP2, GP3)
+
+The F1245 has **three circulation pumps**, each dedicated to one circuit:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     F1245 PUMP LAYOUT                           │
+│                                                                 │
+│  GROUND LOOP              HEATING SYSTEM         DHW TANK       │
+│                                                                 │
+│  Ground ──► BT10          BT2 ──► Radiators      Charging      │
+│       │                      │                    Coil          │
+│    ┌──┴──┐               ┌──┴──┐               ┌──┴──┐        │
+│    │ GP1 │               │ GP2 │               │ GP3 │        │
+│    │FIXED│               │ VAR │               │ON/OF│        │
+│    └──┬──┘               └──┬──┘               └──┬──┘        │
+│       │                      │                     │           │
+│  Ground ◄── BT11          BT3 ◄── Radiators    Tank           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### GP1 — Brine Pump (Fixed Speed)
+
+| Property | Value |
+|----------|-------|
+| **Circuit** | Brine (ground loop) |
+| **Speed** | Fixed (on/off) |
+| **Runs when** | Compressor is running |
+| **Purpose** | Circulates brine through the ground collector and evaporator |
+
+GP1 is a simple on/off pump. When the compressor starts, GP1 starts. When the
+compressor stops, GP1 stops (after a short delay). The flow rate is constant —
+the system relies on the ground loop being correctly dimensioned at installation.
+
+### GP2 — Heating Circuit Pump (Variable Speed) ⭐
+
+| Property | Value |
+|----------|-------|
+| **Circuit** | Heating (radiators / underfloor) |
+| **Speed** | **Variable** (auto-adjusted by the heat pump) |
+| **Runs when** | Heating demand exists (Degree Minutes < 0) |
+| **Purpose** | Circulates heated water through radiators and back |
+| **Controlled by** | ΔT between BT2 (supply) and BT3 (return) |
+
+GP2 is the **most important pump for comfort**. It has variable speed and the
+heat pump automatically adjusts it to maintain even heat distribution:
+
+```
+  GP2 Speed Control Logic:
+  
+  ΔT = BT2 (supply) - BT3 (return)
+  
+  ΔT too large (>10°C)  → GP2 speeds UP   → more flow → heat spreads faster
+  ΔT too small (<5°C)   → GP2 slows DOWN  → less flow → more heat per radiator
+  ΔT optimal (5-10°C)   → GP2 maintains   → balanced operation
+```
+
+#### How GP2 Compensates the Heat Curve
+
+This is a key insight: **GP2's variable speed partially compensates for heat
+curve changes made by the Smartbox.**
+
+When the Smartbox sets Heat Curve Offset to **-3** (emergency, expensive electricity):
+
+```
+  1. Target supply temp drops (e.g. 42°C → 39°C)
+  2. Compressor produces less heat
+  3. BT2 (supply) drops to ~39°C
+  4. ΔT between BT2 and BT3 shrinks
+  5. GP2 automatically SLOWS DOWN
+  6. Water stays longer in each radiator
+  7. Each radiator extracts MORE heat from the slower-flowing water
+  8. Result: Radiators still feel reasonably warm despite lower supply temp
+```
+
+When the Smartbox sets Heat Curve Offset to **+2** (boost, cheap electricity):
+
+```
+  1. Target supply temp rises (e.g. 42°C → 44°C)
+  2. Compressor produces more heat
+  3. BT2 (supply) rises to ~44°C
+  4. ΔT between BT2 and BT3 increases
+  5. GP2 automatically SPEEDS UP
+  6. Water flows faster through radiators
+  7. Heat is distributed more evenly across ALL radiators
+  8. Result: Whole house warms up quickly and uniformly
+```
+
+**The bottom line:** GP2 acts as a natural buffer. Even when the Smartbox
+reduces heating during expensive hours, the pump compensates by slowing down,
+squeezing more heat out of each pass through the radiators. The house cools
+down **gradually** (1-2°C over several hours), not suddenly.
+
+```
+  Comfort Impact of Smartbox Offset Changes:
+  
+  Offset  Supply(BT2)  GP2 Speed   Radiator Feel    House Temp Change
+  ──────  ───────────  ─────────   ──────────────   ─────────────────
+   +2      44°C        Fast        Warm             +0.5-1°C over 2h
+    0      42°C        Normal      Normal           Stable
+   -2      40°C        Slower      Slightly cooler  -0.5°C over 3h
+   -3      39°C        Slow        Noticeable       -1-2°C over 4-6h
+```
+
+### GP3 — DHW Charging Pump (On/Off)
+
+| Property | Value |
+|----------|-------|
+| **Circuit** | DHW (hot water tank charging) |
+| **Speed** | Fixed (on/off) |
+| **Runs when** | DHW charging is active (3-way valve switched to tank) |
+| **Purpose** | Circulates heated water through the charging coil inside the DHW tank |
+
+GP3 only runs during DHW charging cycles. When BT7 drops below the start
+temperature, the 3-way valve switches to the tank circuit, GP3 starts, and
+hot water from the condenser flows through the coil inside the tank, heating
+the tap water without mixing with it.
 
 ---
 
