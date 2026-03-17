@@ -1,4 +1,4 @@
-# Revolt Nibe Smartbox v1.3
+# Revolt Nibe Smartbox v1.3.1
 
 **Commercial-grade smart controller firmware for Nibe heat pumps with autonomous electricity spot price optimization**
 
@@ -61,6 +61,51 @@ Nibe Smartbox transforms your Nibe F1245 heat pump into an intelligent, cost-opt
 | **High** (top 25%) | -2 (reduce heating) | Economy |
 | **Extremely Low** (<10 öre) | +2 | **Luxury** |
 | **Above User Max** | -3 (emergency) | Economy |
+
+---
+
+## 📦 Choosing a Version
+
+Each version includes both the **ESPHome YAML** (for compiling) and **pre-built firmware** (for flashing directly):
+
+```
+firmware/
+├── v1.2/          ← Basic spot price, 60-min updates
+│   ├── smartbox.yaml
+│   ├── firmware.bin
+│   ├── firmware.factory.bin
+│   └── firmware.ota.bin
+├── v1.3/          ← 15-min resolution, tomorrow prices, sparkline
+│   ├── smartbox.yaml
+│   ├── firmware.bin
+│   ├── firmware.factory.bin
+│   └── firmware.ota.bin
+└── v1.3.1/        ← Dynamic emergency threshold, DHW bugfix (latest)
+    ├── smartbox.yaml
+    ├── firmware.bin
+    ├── firmware.factory.bin
+    └── firmware.ota.bin
+```
+
+| Version | Key Changes | Compile From |
+|---------|-------------|--------------|
+| **v1.3.1** ⭐ | Dynamic emergency threshold (% of daily max), DHW bugfix | `firmware/v1.3.1/smartbox.yaml` |
+| v1.3.0 | 15-min price slots, tomorrow prices, sparkline | `firmware/v1.3/smartbox.yaml` |
+| v1.2.0 | Basic spot price optimization, 60-min updates | `firmware/v1.2/smartbox.yaml` |
+
+**To compile a specific version:**
+```bash
+# Copy the version's YAML to root, edit WiFi credentials, then compile
+cp firmware/v1.3.1/smartbox.yaml smartbox.yaml
+esphome compile smartbox.yaml
+```
+
+**To flash pre-built firmware (no compilation needed):**
+```bash
+esptool.py write_flash 0x0 firmware/v1.3.1/firmware.factory.bin
+```
+
+> 💡 The root `smartbox.yaml` always contains the **latest** version.
 
 ---
 
@@ -242,6 +287,6 @@ This firmware is provided "as is" without warranty. Use at your own risk. Always
 
 **Made with ❤️ for the Nibe heat pump community**
 
-**Version**: 1.3  
+**Version**: 1.3.1  
 **Last Updated**: 2026-03-17  
 **Tested With**: ESPHome 2026.2.2, LilyGo T-CAN485 v1.1, Nibe F1245
