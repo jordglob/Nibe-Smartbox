@@ -4,6 +4,13 @@ All notable changes to the Revolt Smartbox project will be documented in this fi
 
 ---
 
+## [1.3.2] - 2026-03-18
+
+### 🐛 Fixed
+- **15-Min Sparkline Resolution**: Fixed a logic flaw where the spot price parsing only matched on the current hour. Since the elprisetjustnu.se API now provides 15-minute price slots (e.g. `00:00`, `00:15`, `00:30`), the previous hour-only regex caused the sensor to publish the exact same `00:00` price four times per hour, creating a stair-stepped sparkline graph. The parsing regex now correctly includes both hour and minute (`cur_h`, `cur_m`), allowing the graph to perfectly reflect true 15-minute price variations.
+
+---
+
 ## [1.3.1] - 2026-03-17
 
 ### 🔧 Emergency Threshold Rework + Documentation

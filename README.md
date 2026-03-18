@@ -89,20 +89,25 @@ firmware/
 
 | Version | Key Changes | Compile From |
 |---------|-------------|--------------|
-| **v1.3.1** ⭐ | Dynamic emergency threshold (% of daily max), DHW bugfix | `firmware/v1.3.1/smartbox.yaml` |
+| **v1.3.2** ⭐ | Fixed 15-min sparkline resolution | `firmware/v1.3.2/smartbox.yaml` |
+| v1.3.1 | Dynamic emergency threshold (% of daily max), DHW bugfix | `firmware/v1.3.1/smartbox.yaml` |
 | v1.3.0 | 15-min price slots, tomorrow prices, sparkline | `firmware/v1.3/smartbox.yaml` |
 | v1.2.0 | Basic spot price optimization, 60-min updates | `firmware/v1.2/smartbox.yaml` |
+
+> **Firmware File Types:**
+> * `firmware.factory.bin`: Contains bootloader + app. Use for **first-time USB flashing**.
+> * `firmware.ota.bin`: Contains only the app. Use for **wireless web updates**.
 
 **To compile a specific version:**
 ```bash
 # Copy the version's YAML to root, edit WiFi credentials, then compile
-cp firmware/v1.3.1/smartbox.yaml smartbox.yaml
+cp firmware/v1.3.2/smartbox.yaml smartbox.yaml
 esphome compile smartbox.yaml
 ```
 
 **To flash pre-built firmware (no compilation needed):**
 ```bash
-esptool.py write_flash 0x0 firmware/v1.3.1/firmware.factory.bin
+esptool.py write_flash 0x0 firmware/v1.3.2/firmware.factory.bin
 ```
 
 > 💡 The root `smartbox.yaml` always contains the **latest** version.
@@ -288,6 +293,7 @@ This firmware is provided "as is" without warranty. Use at your own risk. Always
 
 **Made with ❤️ for the Nibe heat pump community**
 
-**Version**: 1.3.1  
-**Last Updated**: 2026-03-17  
-**Tested With**: ESPHome 2026.2.2, LilyGo T-CAN485 v1.1, Nibe F1245
+**Version**: 1.3.2  
+**Last Updated**: 2026-03-18  
+**Tested With**: ESPHome 2026.2.2, LilyGo T-CAN485 v1.1, Nibe F1245  
+*AI Authorship: V1.3.1 developed by Claude 3.7 Sonnet. V1.3.2 fixes by Gemini 3.1 Pro.*
