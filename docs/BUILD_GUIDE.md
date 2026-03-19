@@ -163,10 +163,10 @@ The 6 Nibe sensors using `platform: homeassistant` were creating a circular depe
 2. Home Assistant creates sensors
 3. ESP32 tries to pull sensors back ← This doesn't work reliably
 
-**Future Plans (Standalone Competition)**:
+**Future Plans (Standalone Direct Parsing)**:
 Sensors are preserved (commented out) for when we implement:
 1. Custom Nibe register parsing component (direct ESP32 parsing)
-2. Visual pump representation for Standalone Visualization
+2. Visual pump representation (temperatures, status, flow)
 3. Real-time temperature display on local web interface
 
 ### Time Synchronization Strategy
@@ -524,7 +524,7 @@ Flash: [======    ]  58.5% (used 1073939 bytes from 1835008 bytes)
 
 ## Future Improvements
 
-### 1. Standalone Operation (No Home Assistant)
+### 1. Standalone Direct Parsing
 **Current Limitation**: Nibe register read/write requires Home Assistant
 
 **Proposed Solution**:

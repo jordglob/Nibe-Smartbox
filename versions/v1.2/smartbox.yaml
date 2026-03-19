@@ -104,10 +104,10 @@ nibegw:
 # provide an ESPHome sensor platform. The nibegw component only forwards raw
 # Nibe telegrams via UDP to Home Assistant, where the Nibe integration parses them.
 #
-# FUTURE PLANS (Standalone Competition & Visualization):
+# FUTURE PLANS (Standalone Direct Parsing & Visualization):
 # These sensors will be re-enabled when we implement:
 # 1. Custom Nibe register parsing component (direct ESP32 parsing)
-# 2. Visual representation of pump data for Standalone Visualization
+# 2. Visual representation of pump data
 # 3. Real-time temperature/status display on local web interface
 #
 # For now, Nibe sensor data is available in Home Assistant via the Nibe integration.
@@ -159,7 +159,7 @@ sensor:
   - platform: template
     name: "Current Spot Price"
     id: current_spot_price
-    unit_of_measurement: "+Âre/kWh"
+    unit_of_measurement: "+Ã‚re/kWh"
     accuracy_decimals: 2
     device_class: monetary
     state_class: measurement
@@ -169,14 +169,14 @@ sensor:
   - platform: template
     name: "Daily Min Price"
     id: daily_min_price
-    unit_of_measurement: "+Âre/kWh"
+    unit_of_measurement: "+Ã‚re/kWh"
     accuracy_decimals: 2
     icon: "mdi:arrow-down"
 
   - platform: template
     name: "Daily Max Price"
     id: daily_max_price
-    unit_of_measurement: "+Âre/kWh"
+    unit_of_measurement: "+Ã‚re/kWh"
     accuracy_decimals: 2
     icon: "mdi:arrow-up"
 
@@ -326,9 +326,9 @@ script:
                   std::string price_str = body.substr(sek_pos, end_pos - sek_pos);
                   
                   float price_sek = std::stof(price_str);
-                  float price_ore = price_sek * 100.0; // Convert SEK to +Âre
+                  float price_ore = price_sek * 100.0; // Convert SEK to +Ã‚re
                   
-                  ESP_LOGI("spot_price", "Ô£ô Current spot price: %.2f +Âre/kWh (%.4f SEK/kWh)", price_ore, price_sek);
+                  ESP_LOGI("spot_price", "Ã”Â£Ã´ Current spot price: %.2f +Ã‚re/kWh (%.4f SEK/kWh)", price_ore, price_sek);
                   
                   id(current_spot_price).publish_state(price_ore);
                   
@@ -349,7 +349,7 @@ script:
                   id(daily_min_price).publish_state(min_price);
                   id(daily_max_price).publish_state(max_price);
                   
-                  ESP_LOGI("spot_price", "Daily range: %.2f - %.2f +Âre/kWh", min_price, max_price);
+                  ESP_LOGI("spot_price", "Daily range: %.2f - %.2f +Ã‚re/kWh", min_price, max_price);
                   
                   // SMART CONTROL LOGIC
                   float price_range = max_price - min_price;

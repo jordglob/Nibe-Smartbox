@@ -1,5 +1,5 @@
 # =========================================================
-# Revolt Smartbox V1.3 ÔÇö Commercial-Grade Smart Controller
+# Revolt Smartbox V1.3 Ã”Ã‡Ã¶ Commercial-Grade Smart Controller
 # LilyGo T-CAN485 v1.1 + Nibe F1245 Heat Pump
 # =========================================================
 # Architecture: nibegw UDP gateway + Local Web UI + Spot Price
@@ -10,7 +10,7 @@
 esphome:
   name: nibe-smartbox
   friendly_name: "Revolt Smartbox"
-  comment: "V1.3 ÔÇö Spot Price Optimizer for Nibe F1245"
+  comment: "V1.3 Ã”Ã‡Ã¶ Spot Price Optimizer for Nibe F1245"
   build_path: "C:/tmp/esphome/nibe-smartbox"
   on_boot:
     priority: -100
@@ -100,7 +100,7 @@ time:
       - 2.pool.ntp.org
 
 # =========================================================
-# EXTERNAL COMPONENTS ÔÇö elupus/esphome-nibe
+# EXTERNAL COMPONENTS Ã”Ã‡Ã¶ elupus/esphome-nibe
 # =========================================================
 external_components:
   - source:
@@ -109,9 +109,9 @@ external_components:
       ref: master
 
 # =========================================================
-# CRITICAL HARDWARE SETUP ÔÇö LilyGo T-CAN485 v1.1
+# CRITICAL HARDWARE SETUP Ã”Ã‡Ã¶ LilyGo T-CAN485 v1.1
 # GPIO16, GPIO17, GPIO19 = inverted outputs (chip enable)
-# Hardware auto-direction RS485 ÔÇö NO dir_pin!
+# Hardware auto-direction RS485 Ã”Ã‡Ã¶ NO dir_pin!
 # =========================================================
 output:
   - platform: gpio
@@ -175,7 +175,7 @@ http_request:
   verify_ssl: false
 
 # =========================================================
-# SENSORS ÔÇö Nibe (from HA), Spot Price, System Info
+# SENSORS Ã”Ã‡Ã¶ Nibe (from HA), Spot Price, System Info
 # =========================================================
 sensor:
   # --- Nibe Heat Pump Sensors (imported from Home Assistant) ---
@@ -184,7 +184,7 @@ sensor:
     entity_id: sensor.f1245_bt2_supply_temp
     name: "BT2 Supply Temp"
     icon: "mdi:thermometer"
-    unit_of_measurement: "-¦C"
+    unit_of_measurement: "-Â¦C"
     device_class: temperature
 
   - platform: homeassistant
@@ -192,7 +192,7 @@ sensor:
     entity_id: sensor.f1245_bt3_return_temp
     name: "BT3 Return Temp"
     icon: "mdi:thermometer"
-    unit_of_measurement: "-¦C"
+    unit_of_measurement: "-Â¦C"
     device_class: temperature
 
   - platform: homeassistant
@@ -200,7 +200,7 @@ sensor:
     entity_id: sensor.f1245_bt1_outdoor_temperature
     name: "BT1 Outdoor Temp"
     icon: "mdi:thermometer-lines"
-    unit_of_measurement: "-¦C"
+    unit_of_measurement: "-Â¦C"
     device_class: temperature
 
   - platform: homeassistant
@@ -208,7 +208,7 @@ sensor:
     entity_id: sensor.f1245_bt7_hw_top
     name: "BT7 Hot Water Top"
     icon: "mdi:water-thermometer"
-    unit_of_measurement: "-¦C"
+    unit_of_measurement: "-Â¦C"
     device_class: temperature
 
   - platform: homeassistant
@@ -227,7 +227,7 @@ sensor:
   - platform: template
     name: "Current Spot Price"
     id: current_spot_price
-    unit_of_measurement: "+Âre/kWh"
+    unit_of_measurement: "+Ã‚re/kWh"
     accuracy_decimals: 2
     device_class: monetary
     state_class: measurement
@@ -236,21 +236,21 @@ sensor:
   - platform: template
     name: "Daily Min Price"
     id: daily_min_price
-    unit_of_measurement: "+Âre/kWh"
+    unit_of_measurement: "+Ã‚re/kWh"
     accuracy_decimals: 2
     icon: "mdi:arrow-down"
 
   - platform: template
     name: "Daily Max Price"
     id: daily_max_price
-    unit_of_measurement: "+Âre/kWh"
+    unit_of_measurement: "+Ã‚re/kWh"
     accuracy_decimals: 2
     icon: "mdi:arrow-up"
 
   - platform: template
     name: "Daily Avg Price"
     id: daily_avg_price
-    unit_of_measurement: "+Âre/kWh"
+    unit_of_measurement: "+Ã‚re/kWh"
     accuracy_decimals: 2
     icon: "mdi:approximately-equal"
 
@@ -279,7 +279,7 @@ sensor:
       return heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
 
 # =========================================================
-# TEXT SENSORS ÔÇö Status, Nerd Tab Info
+# TEXT SENSORS Ã”Ã‡Ã¶ Status, Nerd Tab Info
 # =========================================================
 text_sensor:
   - platform: template
@@ -315,7 +315,7 @@ text_sensor:
     icon: "mdi:tag"
 
 # =========================================================
-# THE BRAIN ÔÇö Control Mode Selector
+# THE BRAIN Ã”Ã‡Ã¶ Control Mode Selector
 # =========================================================
 select:
   - platform: template
@@ -335,7 +335,7 @@ select:
           args: ['x.c_str()']
       - lambda: |-
           // Safety: On mode change, reset heat curve to 0 and hot water to Normal
-          ESP_LOGI("brain", "Mode transition ÔÇö resetting controls to safe defaults");
+          ESP_LOGI("brain", "Mode transition Ã”Ã‡Ã¶ resetting controls to safe defaults");
           auto hc_call = id(heat_curve_offset).make_call();
           hc_call.set_value(0);
           hc_call.perform();
@@ -365,7 +365,7 @@ select:
                 blue: 100%
             - logger.log:
                 level: WARN
-                format: "Cloud mode is a placeholder ÔÇö not yet implemented."
+                format: "Cloud mode is a placeholder Ã”Ã‡Ã¶ not yet implemented."
 
   # --- Hot Water Mode (writes to HA) ---
   - platform: template
@@ -387,7 +387,7 @@ select:
             option: !lambda 'return x;'
 
 # =========================================================
-# THE CONFIGURATOR ÔÇö User Settings (saved to flash)
+# THE CONFIGURATOR Ã”Ã‡Ã¶ User Settings (saved to flash)
 # =========================================================
   # --- Electricity Region Selector ---
   - platform: template
@@ -433,7 +433,7 @@ number:
     min_value: 0
     max_value: 500
     step: 5
-    unit_of_measurement: "+Âre/kWh"
+    unit_of_measurement: "+Ã‚re/kWh"
     mode: box
     initial_value: 100
 
@@ -468,7 +468,7 @@ button:
       - script.execute: fetch_spot_price
 
 # =========================================================
-# GLOBALS ÔÇö for price data storage
+# GLOBALS Ã”Ã‡Ã¶ for price data storage
 # =========================================================
 globals:
   - id: prices_fetched_today
@@ -681,7 +681,7 @@ script:
           blue: 0%
 
 # =========================================================
-# AUTOMATION ÔÇö Hourly fetch + midnight reset
+# AUTOMATION Ã”Ã‡Ã¶ Hourly fetch + midnight reset
 # =========================================================
 interval:
   - interval: 15min
@@ -699,5 +699,5 @@ interval:
           auto t = id(sntp_time).now();
           if (t.hour == 0 && t.minute == 0) {
             id(prices_fetched_today) = false;
-            ESP_LOGI("sched", "Midnight ÔÇö prices marked stale");
+            ESP_LOGI("sched", "Midnight Ã”Ã‡Ã¶ prices marked stale");
           }
