@@ -4,6 +4,24 @@ All notable changes to the Revolt Smartbox project will be documented in this fi
 
 ---
 
+## [1.4.1] - 2026-03-23
+
+### 🐛 Fixed
+- **HTTP Buffer Truncation**: Fixed an issue where the spot price array was only capturing the first 1-2 hours of prices. The `http_request` buffer defaults to 1024 bytes, but the 96x 15-minute intervals payload from the API is ~13.6KB. Added `max_response_buffer_size: 16384` to ensure the full payload is processed.
+- **Hardware Grounding Warning**: Documented critical grounding requirements (RS485 GND must be bridged to ESP32 GND) to prevent data corruption and Alarm 251 issues.
+
+---
+
+## [1.4.0] - 2026-03-19
+
+### ✨ New
+- **Tomorrow's Prices**: Fetches and displays day-ahead prices from elprisetjustnu.se.
+- **Independent Graphs**: Separate price graphs for today and tomorrow with 30-minute resolution.
+- **Visualisation**: Cheapest upcoming 1-hour period highlighted ("valley" in graph).
+- **Architecture**: Asynchronous, non-blocking feeder mechanism for robust GUI performance.
+
+---
+
 ## [1.3.2] - 2026-03-18
 
 ### 🐛 Fixed

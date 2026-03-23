@@ -302,8 +302,6 @@ script:
               "https://www.elprisetjustnu.se/api/v1/prices/%04d/%02d-%02d_SE3.json",
               time.year, time.month, time.day_of_month);
             return std::string(url);
-          # CRITICAL: Must be at least 16384 bytes to prevent truncation of 96x 15-min slots!
-          max_response_buffer_size: 16384
           capture_response: true
           on_response:
             then:
@@ -342,79 +340,6 @@ script:
                     if (best_start != -1 && i >= best_start && i < best_start + 2) val = mn;
                     id(today_price_graph).publish_state(val);
                   }
-
-                  // Publish current spot price
-                  auto time = id(sntp_time).now();
-                  int cur_idx = (time.hour * 2) + (time.minute >= 30 ? 1 : 0);
-                  float price_ore = id(spot_prices)[cur_idx];
-                  id(current_spot_price).publish_state(price_ore);
-                  
-                  // Publish current price slot
-                  char slot_buf[20];
-                  int cur_h = time.hour;
-                  int cur_m = (time.minute >= 30) ? 30 : 0;
-                  int next_m = cur_m + 30;
-                  int next_h = cur_h;
-                  if (next_m >= 60) { next_m = 0; next_h = (cur_h + 1) % 24; }
-                  snprintf(slot_buf, sizeof(slot_buf), "%02d:%02d-%02d:%02d",
-                           cur_h, cur_m, next_h, next_m);
-                  id(current_price_slot).publish_state(slot_buf);
-
-                  std::string mode = id(control_mode).current_option();
-                  if (mode != "LilyGo Local (Spot Price)") {
-                    ESP_LOGI("spot", "Mode is '%s' — skipping smart control", mode.c_str());
-                    id(price_status).publish_state("Fetched (Manual Mode)");
-                  } else {
-                    // Smart control logic
-                    float range = mx - mn;
-                    float low_t = mn + (range * 0.25f);
-                    float high_t = mn + (range * 0.75f);
-
-                    float emg_pct = id(emergency_threshold_percent).state / 100.0f;
-                    float emg_threshold = mx * emg_pct;
-                    ESP_LOGI("spot", "Emergency threshold: %.0f%% of max %.1f = %.1f öre",
-                             emg_pct * 100.0f, mx, emg_threshold);
-
-                    if (price_ore > emg_threshold) {
-                      ESP_LOGW("spot", "EMERGENCY — price %.1f > threshold %.1f", price_ore, emg_threshold);
-                      auto c = id(heat_curve_offset).make_call();
-                      c.set_value(-3);
-                      c.perform();
-                      id(price_status).publish_state("EMERGENCY - Top Price");
-                    } else if (price_ore <= low_t) {
-                      ESP_LOGI("spot", "LOW price — offset +2");
-                      auto c = id(heat_curve_offset).make_call();
-                      c.set_value(2);
-                      c.perform();
-                      id(price_status).publish_state("Low Price - Boost");
-                    } else if (price_ore >= high_t) {
-                      ESP_LOGI("spot", "HIGH price — offset -2");
-                      auto c = id(heat_curve_offset).make_call();
-                      c.set_value(-2);
-                      c.perform();
-                      id(price_status).publish_state("High Price - Reduced");
-                    } else {
-                      ESP_LOGI("spot", "NORMAL price — offset 0");
-                      auto c = id(heat_curve_offset).make_call();
-                      c.set_value(0);
-                      c.perform();
-                      id(price_status).publish_state("Normal Price");
-                    }
-
-                    if (price_ore < 10.0f) {
-                      auto c = id(hot_water_mode).make_call();
-                      c.set_option("Luxury");
-                      c.perform();
-                    } else if (price_ore > emg_threshold || price_ore >= high_t) {
-                      auto c = id(hot_water_mode).make_call();
-                      c.set_option("Economy");
-                      c.perform();
-                    } else {
-                      auto c = id(hot_water_mode).make_call();
-                      c.set_option("Normal");
-                      c.perform();
-                    }
-                  }
               - script.execute: fetch_tomorrow_price
 
   - id: fetch_tomorrow_price
@@ -429,8 +354,6 @@ script:
               "https://www.elprisetjustnu.se/api/v1/prices/%04d/%02d-%02d_SE3.json",
               tomorrow.year, tomorrow.month, tomorrow.day_of_month);
             return std::string(url);
-          # CRITICAL: Must be at least 16384 bytes to prevent truncation of 96x 15-min slots!
-          max_response_buffer_size: 16384
           capture_response: true
           on_response:
             then:

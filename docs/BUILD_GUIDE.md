@@ -423,10 +423,10 @@ http://192.168.X.X  (device IP address)
 4. Check current hour matches API data
 
 ### Problem: NibeGW Not Receiving Data
-**Symptoms**: No RS485 communication with heat pump
+**Symptoms**: No RS485 communication with heat pump (e.g. `[D][nibegw:097]: Ignoring byte XX` in logs and `Alarm 251` on the heat pump)
 
 **Solutions**:
-1. Verify RS485 wiring (A, B, GND)
+1. **Verify RS485 wiring (A, B, GND) - CRITICAL:** Ensure that the `GND` from the heat pump is connected to the `GND` pin on the RS485 screw terminal. Additionally, you **MUST** physically bridge (add a jumper wire between) the RS485 `GND` terminal and the main ESP32 board's `GND` to ensure both the RS485 chip and the ESP32 share the exact same stable ground reference.
 2. Check baud rate is 9600
 3. Ensure NO `dir_pin` is configured
 4. Verify GPIO pins are correct for v1.1

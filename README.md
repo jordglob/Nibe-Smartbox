@@ -25,7 +25,9 @@ Click on a version below to access its specific `README` instructions, YAML sour
 
 | Version | Key Changes | Link to Version Folder |
 |---------|-------------|-------------------------|
-| **v1.3.2** ⭐ | Fixed 15-min sparkline resolution | 📁 **[Go to v1.3.2](versions/v1.3.2/)** (Recommended) |
+| **v1.4.1** ⭐ | Fixed 15-min truncation bug, restored smart control logic | 📁 **[Go to v1.4.1](versions/v1.4.1/)** (Recommended) |
+| **v1.4.0** | Tomorrow prices, independent graphs | 📁 [Go to v1.4.0](versions/v1.4/) |
+| **v1.3.2** | Fixed 15-min sparkline resolution | 📁 [Go to v1.3.2](versions/v1.3.2/) |
 | v1.3.1 | Dynamic emergency threshold (% of daily max), DHW bugfix | 📁 [Go to v1.3.1](versions/v1.3.1/) |
 | v1.3.0 | 15-min price slots, tomorrow prices, sparkline | 📁 [Go to v1.3.0](versions/v1.3/) |
 | v1.2.0 | Basic spot price optimization, 60-min updates | 📁 [Go to v1.2.0](versions/v1.2/) |
